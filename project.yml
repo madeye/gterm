@@ -10,6 +10,9 @@ packages:
   SwiftNIOSSH:
     url: https://github.com/apple/swift-nio-ssh.git
     minorVersion: 0.13.0
+  SwiftCrypto:
+    url: https://github.com/apple/swift-crypto.git
+    from: 3.0.0
 
 settings:
   base:
@@ -73,6 +76,8 @@ targets:
         embed: false
       - package: SwiftNIOSSH
         product: NIOSSH
+      - package: SwiftCrypto
+        product: Crypto
       - sdk: Metal.framework
       - sdk: MetalKit.framework
       - sdk: QuartzCore.framework

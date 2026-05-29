@@ -2,12 +2,19 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var ghostty: Ghostty.App
-    @StateObject private var store = ConnectionStore()
+    @StateObject private var connections = ConnectionStore()
+    @StateObject private var keys = KeyStore()
     @State private var activeConnection: SSHConnection?
 
     var body: some View {
-        ConnectionListView(store: store) { connection in
-            activeConnection = connection
+        TabView {
+            ConnectionListView(store: connections, keyStore: keys) { connection in
+                activeConnection = connection
+            }
+            .tabItem { Label("Hosts", systemImage: "server.rack") }
+
+            KeyListView(store: keys, connections: connections)
+                .tabItem { Label("Keys", systemImage: "key.fill") }
         }
         .fullScreenCover(item: $activeConnection) { connection in
             TerminalScreen(connection: connection) {

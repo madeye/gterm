@@ -15,7 +15,9 @@ connection via a custom **passthru IO backend** added to libghostty. See
 - ✅ SSH transport (swift-nio-ssh): password auth, PTY shell, window-change
 - ✅ Custom on-screen keyboard (esc/ctrl/alt/tab/arrows/symbols, sticky mods)
 - ✅ Saved connections (Keychain passwords) + trust-on-first-use host keys
-- ⏳ Public-key authentication; richer settings (font/theme)
+- ✅ Public-key auth: a Keys tab to import Ed25519/ECDSA keys (stored in the
+  Keychain, device-only); each host can select one or more keys to try
+- ⏳ Encrypted (passphrase) keys, RSA, richer settings (font/theme)
 
 ## Building
 

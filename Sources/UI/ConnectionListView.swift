@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// The home screen: a list of saved SSH connections. Tap to connect (prompting
-/// for a password if none is saved), swipe to edit/delete, "+" to add.
+/// The "Hosts" tab: saved SSH connections. Tap to connect (resolving selected
+/// keys and any saved password; prompting for a password only if there's no
+/// key and none saved). Swipe to edit/delete, "+" to add.
 struct ConnectionListView: View {
     @ObservedObject var store: ConnectionStore
+    @ObservedObject var keyStore: KeyStore
     let onConnect: (SSHConnection) -> Void
 
     @State private var editing: SavedConnection?
@@ -37,7 +39,7 @@ struct ConnectionListView: View {
                     }
                 }
             }
-            .navigationTitle("gterm")
+            .navigationTitle("Hosts")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button { editing = SavedConnection() } label: {
@@ -46,7 +48,7 @@ struct ConnectionListView: View {
                 }
             }
             .sheet(item: $editing) { conn in
-                AddConnectionView(store: store, connection: conn)
+                AddConnectionView(store: store, keyStore: keyStore, connection: conn)
             }
             .alert(
                 "Password",
@@ -58,7 +60,7 @@ struct ConnectionListView: View {
             ) { conn in
                 SecureField("password", text: $promptPassword)
                 Button("Connect") {
-                    onConnect(sshConnection(conn, password: promptPassword))
+                    onConnect(makeConnection(conn, password: promptPassword))
                     promptPassword = ""
                 }
                 Button("Cancel", role: .cancel) { promptPassword = "" }
@@ -68,16 +70,25 @@ struct ConnectionListView: View {
         }
     }
 
+    private func keyTexts(for conn: SavedConnection) -> [String] {
+        conn.keyIDs.compactMap { keyStore.text(for: $0) }
+    }
+
+    private func makeConnection(_ conn: SavedConnection, password: String) -> SSHConnection {
+        SSHConnection(
+            host: conn.host, port: conn.port, username: conn.username,
+            password: password, privateKeys: keyTexts(for: conn))
+    }
+
     private func connect(_ conn: SavedConnection) {
+        let keys = keyTexts(for: conn)
         if let saved = store.savedPassword(for: conn) {
-            onConnect(sshConnection(conn, password: saved))
+            onConnect(makeConnection(conn, password: saved))
+        } else if !keys.isEmpty {
+            onConnect(makeConnection(conn, password: ""))
         } else {
             promptPassword = ""
             passwordPromptFor = conn
         }
-    }
-
-    private func sshConnection(_ c: SavedConnection, password: String) -> SSHConnection {
-        SSHConnection(host: c.host, port: c.port, username: c.username, password: password)
     }
 }

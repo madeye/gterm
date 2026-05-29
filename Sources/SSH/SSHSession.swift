@@ -9,7 +9,9 @@ struct SSHConnection: Identifiable {
     var host: String
     var port: Int = 22
     var username: String
-    var password: String
+    var password: String = ""
+    /// PEM/OpenSSH private key texts to try for public-key auth, in order.
+    var privateKeys: [String] = []
     var term: String = "xterm-256color"
 }
 
@@ -53,10 +55,27 @@ final class SSHSession: TerminalSession {
     func start() {
         notify(.connecting)
 
-        let authDelegate = PasswordAuthDelegate(
-            username: connection.username,
-            password: connection.password
-        )
+        // Build authentication offers in preference order: private key (if
+        // provided), then password (if provided).
+        var offers: [NIOSSHUserAuthenticationOffer.Offer] = []
+        for keyText in connection.privateKeys where !keyText.isEmpty {
+            do {
+                let parsed = try SSHKeyParser.parse(keyText)
+                offers.append(.privateKey(.init(privateKey: parsed.key)))
+            } catch {
+                notify(.failed(Self.describe(error)))
+                return
+            }
+        }
+        if !connection.password.isEmpty {
+            offers.append(.password(.init(password: connection.password)))
+        }
+        guard !offers.isEmpty else {
+            notify(.failed("No authentication method provided."))
+            return
+        }
+
+        let authDelegate = OrderedAuthDelegate(username: connection.username, offers: offers)
         let hostKeyDelegate = TOFUHostKeyDelegate(
             hostID: "\(connection.host):\(connection.port)"
         )
@@ -185,6 +204,9 @@ final class SSHSession: TerminalSession {
     }
 
     private static func describe(_ error: Error) -> String {
+        if let keyError = error as? SSHKeyError {
+            return keyError.description
+        }
         if let hostKey = error as? HostKeyError {
             return hostKey.description
         }
@@ -195,35 +217,45 @@ final class SSHSession: TerminalSession {
     }
 }
 
-// MARK: - Auth delegates
+// MARK: - Auth delegate
 
-/// Offers password authentication once.
-private final class PasswordAuthDelegate: NIOSSHClientUserAuthenticationDelegate {
+/// Offers a fixed, ordered list of authentication methods (e.g. private key
+/// then password), skipping any the server doesn't advertise.
+private final class OrderedAuthDelegate: NIOSSHClientUserAuthenticationDelegate {
     private let username: String
-    private let password: String
-    private var offered = false
+    private let offers: [NIOSSHUserAuthenticationOffer.Offer]
+    private var index = 0
 
-    init(username: String, password: String) {
+    init(username: String, offers: [NIOSSHUserAuthenticationOffer.Offer]) {
         self.username = username
-        self.password = password
+        self.offers = offers
     }
 
     func nextAuthenticationType(
         availableMethods: NIOSSHAvailableUserAuthenticationMethods,
         nextChallengePromise: EventLoopPromise<NIOSSHUserAuthenticationOffer?>
     ) {
-        guard availableMethods.contains(.password), !offered else {
-            // Out of options.
-            nextChallengePromise.succeed(nil)
-            return
+        while index < offers.count {
+            let offer = offers[index]
+            index += 1
+            if isAdvertised(offer, in: availableMethods) {
+                nextChallengePromise.succeed(
+                    NIOSSHUserAuthenticationOffer(username: username, serviceName: "", offer: offer)
+                )
+                return
+            }
         }
-        offered = true
-        nextChallengePromise.succeed(
-            NIOSSHUserAuthenticationOffer(
-                username: username,
-                serviceName: "",
-                offer: .password(.init(password: password))
-            )
-        )
+        nextChallengePromise.succeed(nil)
+    }
+
+    private func isAdvertised(
+        _ offer: NIOSSHUserAuthenticationOffer.Offer,
+        in methods: NIOSSHAvailableUserAuthenticationMethods
+    ) -> Bool {
+        switch offer {
+        case .privateKey: return methods.contains(.publicKey)
+        case .password: return methods.contains(.password)
+        default: return true
+        }
     }
 }

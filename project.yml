@@ -58,6 +58,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gterm
         PRODUCT_NAME: gterm
         TARGETED_DEVICE_FAMILY: "1,2"
+        # Keychain (saved SSH passwords) requires the app to be signed with an
+        # application-identifier entitlement. Xcode's automatic signing with a
+        # team provides this; the entitlements file declares the keychain group.
+        CODE_SIGN_ENTITLEMENTS: gterm.entitlements
+        CODE_SIGN_STYLE: Automatic
         # GhosttyKit is a static Zig library; -ObjC pulls in its ObjC categories
         # and -lstdc++ satisfies the C++ (simdutf/highway) bits it links.
         OTHER_LDFLAGS: [-ObjC, -lstdc++]

@@ -1,0 +1,68 @@
+name: gterm
+options:
+  bundleIdPrefix: io.github.madeye
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: SK4GFF6AHN
+    # Low-level C interop (Unmanaged, C function-pointer callbacks) is much
+    # simpler under the Swift 5 language mode than Swift 6 strict concurrency.
+    SWIFT_VERSION: "5.0"
+    CLANG_ENABLE_MODULES: YES
+    # GhosttyKit's iOS-simulator slice is arm64-only (ghostty doesn't build an
+    # x86_64 simulator slice), so exclude x86_64 for the simulator. This Mac is
+    # Apple Silicon, so the simulator runs arm64 anyway.
+    "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
+
+targets:
+  gterm:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: gterm
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # SSH needs to reach hosts on the local network too.
+        NSLocalNetworkUsageDescription: gterm connects to SSH servers, which may be on your local network.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gterm
+        PRODUCT_NAME: gterm
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # GhosttyKit is a static Zig library; -ObjC pulls in its ObjC categories
+        # and -lstdc++ satisfies the C++ (simdutf/highway) bits it links.
+        OTHER_LDFLAGS: [-ObjC, -lstdc++]
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        ENABLE_BITCODE: NO
+    dependencies:
+      - framework: GhosttyKit.xcframework
+        embed: false
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: QuartzCore.framework
+      - sdk: CoreText.framework
+      - sdk: CoreGraphics.framework

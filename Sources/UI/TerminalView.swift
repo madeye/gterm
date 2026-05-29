@@ -1,14 +1,15 @@
 import SwiftUI
 
-/// SwiftUI wrapper that hosts a `TerminalSurfaceView` and binds it to a
-/// terminal session. For now the session is a local echo; the SSH session is
-/// substituted in a later phase.
+/// SwiftUI wrapper that hosts a `TerminalSurfaceView` and binds it to a terminal
+/// session produced by `makeSession` (loopback, SSH, ...). The session is the
+/// surface's delegate and is retained for the view's lifetime.
 struct TerminalView: UIViewRepresentable {
     let ghostty: Ghostty.App
+    let makeSession: (TerminalSurfaceView) -> TerminalSession
 
     func makeUIView(context: Context) -> TerminalSurfaceView {
         let view = TerminalSurfaceView(ghostty: ghostty)
-        let session = LoopbackSession(view: view)
+        let session = makeSession(view)
         view.delegate = session
         context.coordinator.session = session
         session.start()
@@ -17,10 +18,13 @@ struct TerminalView: UIViewRepresentable {
 
     func updateUIView(_ uiView: TerminalSurfaceView, context: Context) {}
 
+    static func dismantleUIView(_ uiView: TerminalSurfaceView, coordinator: Coordinator) {
+        coordinator.session?.stop()
+    }
+
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     final class Coordinator {
-        /// Retains the session for the lifetime of the view.
         var session: TerminalSession?
     }
 }

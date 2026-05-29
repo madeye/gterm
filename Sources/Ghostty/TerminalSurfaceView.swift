@@ -144,6 +144,14 @@ final class TerminalSurfaceView: UIView {
         return ok
     }
 
+    /// Current terminal grid size (columns, rows). Falls back to 80x24 before
+    /// the surface has been laid out.
+    var gridSize: (cols: Int, rows: Int) {
+        guard let surface else { return (80, 24) }
+        let sz = ghostty_surface_size(surface)
+        return (sz.columns > 0 ? Int(sz.columns) : 80, sz.rows > 0 ? Int(sz.rows) : 24)
+    }
+
     // MARK: Incoming data (transport -> terminal)
 
     /// Push bytes received from the transport (SSH) into the terminal. Safe to

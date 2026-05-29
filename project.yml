@@ -6,6 +6,11 @@ options:
   createIntermediateGroups: true
   groupSortPosition: top
 
+packages:
+  SwiftNIOSSH:
+    url: https://github.com/apple/swift-nio-ssh.git
+    minorVersion: 0.13.0
+
 settings:
   base:
     MARKETING_VERSION: "0.1.0"
@@ -61,6 +66,8 @@ targets:
     dependencies:
       - framework: GhosttyKit.xcframework
         embed: false
+      - package: SwiftNIOSSH
+        product: NIOSSH
       - sdk: Metal.framework
       - sdk: MetalKit.framework
       - sdk: QuartzCore.framework

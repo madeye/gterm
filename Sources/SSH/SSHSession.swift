@@ -57,7 +57,9 @@ final class SSHSession: TerminalSession {
             username: connection.username,
             password: connection.password
         )
-        let hostKeyDelegate = AcceptAllHostKeyDelegate()
+        let hostKeyDelegate = TOFUHostKeyDelegate(
+            hostID: "\(connection.host):\(connection.port)"
+        )
 
         let bootstrap = ClientBootstrap(group: group)
             .channelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
@@ -183,6 +185,9 @@ final class SSHSession: TerminalSession {
     }
 
     private static func describe(_ error: Error) -> String {
+        if let hostKey = error as? HostKeyError {
+            return hostKey.description
+        }
         if let sshError = error as? NIOSSHError {
             return "\(sshError)"
         }
@@ -220,13 +225,5 @@ private final class PasswordAuthDelegate: NIOSSHClientUserAuthenticationDelegate
                 offer: .password(.init(password: password))
             )
         )
-    }
-}
-
-/// Accepts any host key. TODO(Phase 6): trust-on-first-use with a persisted
-/// known_hosts and a user prompt on change.
-private final class AcceptAllHostKeyDelegate: NIOSSHClientServerAuthenticationDelegate {
-    func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
-        validationCompletePromise.succeed(())
     }
 }

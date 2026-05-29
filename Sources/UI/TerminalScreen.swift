@@ -10,20 +10,16 @@ struct TerminalScreen: View {
     @State private var state: SSHSessionState = .idle
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color.black.ignoresSafeArea()
-
+        VStack(spacing: 0) {
+            statusBar
             TerminalView(ghostty: ghostty) { view in
                 SSHSession(connection: connection, view: view) { newState in
                     state = newState
                 }
             }
-            .ignoresSafeArea(.container, edges: .bottom)
-
-            statusBar
         }
+        .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
-        .statusBarHidden(false)
     }
 
     @ViewBuilder private var statusBar: some View {

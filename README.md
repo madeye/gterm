@@ -9,11 +9,13 @@ connection via a custom **passthru IO backend** added to libghostty. See
 
 ## Status
 
-- ✅ libghostty `passthru` IO backend (in `../ghostty`, branch
-  `feature/libghostty-passthru-io`)
-- ✅ iOS app scaffold; ghostty terminal surface renders on device/simulator
-- ✅ Lean Swift layer (app, surface view, input) with a local-echo loopback
-- ⏳ SSH transport (swift-nio-ssh), custom keyboard, connection management
+- ✅ libghostty `passthru` IO backend ([madeye/ghostty](https://github.com/madeye/ghostty))
+- ✅ iOS app; ghostty terminal surface renders on device/simulator
+- ✅ Lean Swift layer over libghostty (app, surface view, input)
+- ✅ SSH transport (swift-nio-ssh): password auth, PTY shell, window-change
+- ✅ Custom on-screen keyboard (esc/ctrl/alt/tab/arrows/symbols, sticky mods)
+- ✅ Saved connections (Keychain passwords) + trust-on-first-use host keys
+- ⏳ Public-key authentication; richer settings (font/theme)
 
 ## Building
 
@@ -23,6 +25,17 @@ Requirements: macOS, Xcode 26+, and the patched Homebrew zig:
 brew install zig@0.15        # keg-only; the build script uses it by full path
 brew install xcodegen
 ```
+
+0. Get the terminal engine. gterm uses a fork of ghostty that adds a
+   `passthru` IO backend (so the terminal can be driven by SSH instead of a
+   local shell). Clone it next to this repo:
+
+   ```sh
+   git clone https://github.com/madeye/ghostty.git ../ghostty
+   ```
+
+   (Or clone it elsewhere and pass `GHOSTTY_DIR=/path/to/ghostty` to the build
+   script below.)
 
 1. Build the terminal engine (cross-compiles `GhosttyKit.xcframework` with
    macOS + iOS + iOS-simulator slices, and applies the required iOS patch to

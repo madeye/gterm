@@ -93,6 +93,34 @@ extension Ghostty {
             }
         }
 
+        /// Map a printable character to a physical key, so modifier combos
+        /// (e.g. Ctrl-C) can be encoded correctly when the user types on the
+        /// system keyboard with a sticky modifier armed.
+        init?(character: Character) {
+            switch character.lowercased().first {
+            case "a": self = .a; case "b": self = .b; case "c": self = .c
+            case "d": self = .d; case "e": self = .e; case "f": self = .f
+            case "g": self = .g; case "h": self = .h; case "i": self = .i
+            case "j": self = .j; case "k": self = .k; case "l": self = .l
+            case "m": self = .m; case "n": self = .n; case "o": self = .o
+            case "p": self = .p; case "q": self = .q; case "r": self = .r
+            case "s": self = .s; case "t": self = .t; case "u": self = .u
+            case "v": self = .v; case "w": self = .w; case "x": self = .x
+            case "y": self = .y; case "z": self = .z
+            case "0": self = .d0; case "1": self = .d1; case "2": self = .d2
+            case "3": self = .d3; case "4": self = .d4; case "5": self = .d5
+            case "6": self = .d6; case "7": self = .d7; case "8": self = .d8
+            case "9": self = .d9
+            case "-": self = .minus; case "=": self = .equal
+            case "[": self = .bracketLeft; case "]": self = .bracketRight
+            case "\\": self = .backslash; case ";": self = .semicolon
+            case "'": self = .quote; case "`": self = .backquote
+            case ",": self = .comma; case ".": self = .period
+            case "/": self = .slash; case " ": self = .space
+            default: return nil
+            }
+        }
+
         var cKey: ghostty_input_key_e {
             switch self {
             case .a: return GHOSTTY_KEY_A; case .b: return GHOSTTY_KEY_B

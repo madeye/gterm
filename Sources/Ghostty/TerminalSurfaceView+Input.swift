@@ -8,6 +8,20 @@ extension TerminalSurfaceView: UIKeyInput {
     var hasText: Bool { true }
 
     func insertText(_ text: String) {
+        // If a modifier is armed (e.g. Ctrl), encode each character as a key
+        // event so combos like Ctrl-C produce the right control bytes.
+        if !stickyMods.isEmpty {
+            for ch in text {
+                if let key = Ghostty.Key(character: ch) {
+                    sendKey(key, mods: stickyMods)
+                } else {
+                    sendText(String(ch))
+                }
+            }
+            clearStickyMods()
+            return
+        }
+
         switch text {
         case "\n", "\r":
             sendKey(.enter)

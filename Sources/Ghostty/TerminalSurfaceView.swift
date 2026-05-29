@@ -144,6 +144,49 @@ final class TerminalSurfaceView: UIView {
         return ok
     }
 
+    // MARK: Accessory keyboard + sticky modifiers
+
+    /// Modifiers "armed" by the accessory bar, applied to the next keypress.
+    private(set) var stickyMods: Ghostty.Mods = .none
+
+    private lazy var accessory = AccessoryKeyboardView(target: self)
+
+    override var inputAccessoryView: UIView? { accessory }
+
+    @discardableResult func toggleCtrl() -> Bool {
+        if stickyMods.contains(.ctrl) { stickyMods.remove(.ctrl) } else { stickyMods.insert(.ctrl) }
+        return stickyMods.contains(.ctrl)
+    }
+
+    @discardableResult func toggleAlt() -> Bool {
+        if stickyMods.contains(.alt) { stickyMods.remove(.alt) } else { stickyMods.insert(.alt) }
+        return stickyMods.contains(.alt)
+    }
+
+    func clearStickyMods() {
+        guard !stickyMods.isEmpty else { return }
+        stickyMods = .none
+        accessory.updateModifierState(ctrl: false, alt: false)
+    }
+
+    /// Send a special key (esc, arrows, tab, ...) with any armed modifiers,
+    /// then clear them.
+    func pressSpecial(_ key: Ghostty.Key) {
+        sendKey(key, mods: stickyMods)
+        clearStickyMods()
+    }
+
+    /// Insert a printable symbol from the accessory bar, applying armed
+    /// modifiers if any (e.g. Ctrl-/).
+    func insertSymbol(_ s: String) {
+        if !stickyMods.isEmpty, let ch = s.first, let key = Ghostty.Key(character: ch) {
+            sendKey(key, mods: stickyMods)
+            clearStickyMods()
+        } else {
+            sendText(s)
+        }
+    }
+
     /// Current terminal grid size (columns, rows). Falls back to 80x24 before
     /// the surface has been laid out.
     var gridSize: (cols: Int, rows: Int) {

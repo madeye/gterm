@@ -4,7 +4,7 @@
 #
 # gterm renders its terminal using ghostty's libghostty engine, cross-compiled
 # to a static-library xcframework with macOS + iOS-device + iOS-simulator
-# slices. This script builds it from the sibling ghostty checkout and copies
+# slices. This script builds it from the bundled `ghostty` submodule and copies
 # the result next to this repo so the Xcode project can link it.
 #
 # Toolchain quirks on this machine (see also the project memory):
@@ -18,7 +18,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GTERM_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-GHOSTTY_DIR="${GHOSTTY_DIR:-$(cd "$GTERM_DIR/.." && pwd)/ghostty}"
+# Default to the in-repo `ghostty` submodule. Override with GHOSTTY_DIR to point
+# at a separate checkout (e.g. for local engine development).
+GHOSTTY_DIR="${GHOSTTY_DIR:-$GTERM_DIR/ghostty}"
 
 ZIG="${ZIG:-/opt/homebrew/opt/zig@0.15/bin/zig}"
 
@@ -28,9 +30,10 @@ if [[ ! -x "$ZIG" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$GHOSTTY_DIR" ]]; then
-  echo "error: ghostty checkout not found at $GHOSTTY_DIR" >&2
-  echo "       set GHOSTTY_DIR=/path/to/ghostty" >&2
+if [[ ! -d "$GHOSTTY_DIR" || -z "$(ls -A "$GHOSTTY_DIR" 2>/dev/null)" ]]; then
+  echo "error: ghostty submodule not checked out at $GHOSTTY_DIR" >&2
+  echo "       run: git submodule update --init ghostty" >&2
+  echo "       (or set GHOSTTY_DIR=/path/to/ghostty for a separate checkout)" >&2
   exit 1
 fi
 

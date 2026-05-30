@@ -1,0 +1,1 @@
+A real terminal in your pocket. Ghostty's GPU engine, native SSH, on-device keys, and an AI assistant that writes the commands for you.

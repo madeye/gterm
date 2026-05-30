@@ -1,0 +1,1 @@
+A live SSH server is required to exercise the terminal. Sign in to any SSH host you control (host, username, and password or an imported private key). The app stores credentials only in the on-device Keychain.

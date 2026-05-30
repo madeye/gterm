@@ -1,0 +1,7 @@
+First release of gterm.
+
+- Ghostty GPU/Metal terminal renderer with full xterm/VT emulation
+- SSH transport: password and public-key auth, PTY shell, live resize, trust-on-first-use host keys
+- On-device Ed25519 / ECDSA key import, stored in the Keychain
+- Custom shell-grade accessory keyboard with sticky modifiers
+- AI command assistant and history-aware auto-completion

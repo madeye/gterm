@@ -1,0 +1,1 @@
+ssh,terminal,ghostty,shell,console,server,xterm,vt100,ssh client,sysadmin,devops,secure shell

@@ -193,6 +193,85 @@ final class TerminalSurfaceView: UIView {
         clearStickyMods()
     }
 
+    // MARK: Command-line autosuggest (local input mirror)
+
+    /// Best-effort mirror of the command line the user is currently typing, used
+    /// to drive history-based autocomplete in the accessory bar. It is updated
+    /// from the input we send and reset whenever the line state becomes
+    /// unpredictable (control combos, cursor movement, tab completion). It can
+    /// drift from the real shell line, so suggestions only ever append a suffix.
+    private var currentLine = ""
+
+    /// Feed printable text into the line mirror; newlines commit the line.
+    private func noteInputText(_ text: String) {
+        var appended = false
+        for ch in text {
+            if ch.isNewline {
+                commitLine()
+                appended = false
+            } else if Self.isPrintable(ch) {
+                currentLine.append(ch)
+                appended = true
+            }
+        }
+        if appended { refreshSuggestions() }
+    }
+
+    /// Feed a key event into the line mirror.
+    private func noteInputKey(_ key: Ghostty.Key, mods: Ghostty.Mods) {
+        // A Ctrl/Alt/Cmd combo edits or interrupts the line in ways we can't
+        // model (Ctrl-C, Ctrl-U, Alt-b, …) — drop the mirror.
+        if !mods.subtracting(.shift).isEmpty {
+            resetLine()
+            return
+        }
+        switch key {
+        case .enter:
+            commitLine()
+        case .backspace:
+            if !currentLine.isEmpty {
+                currentLine.removeLast()
+                refreshSuggestions()
+            }
+        default:
+            // Arrows, tab, esc, del, home/end, page, function keys: the line
+            // contents become unpredictable, so stop mirroring until the next
+            // fresh line. (Printable keys never reach here without a modifier.)
+            if key.isSpecial { resetLine() }
+        }
+    }
+
+    /// Apply a chosen autosuggestion by sending only the characters beyond what
+    /// the user has already typed.
+    func applySuggestion(_ full: String) {
+        guard full.count > currentLine.count, full.hasPrefix(currentLine) else { return }
+        sendText(String(full.dropFirst(currentLine.count)))
+    }
+
+    private func commitLine() {
+        CommandHistory.shared.record(currentLine)
+        currentLine = ""
+        refreshSuggestions()
+    }
+
+    private func resetLine() {
+        guard !currentLine.isEmpty else { return }
+        currentLine = ""
+        refreshSuggestions()
+    }
+
+    private func refreshSuggestions() {
+        let suggestions = currentLine.isEmpty
+            ? []
+            : CommandHistory.shared.suggestions(prefix: currentLine)
+        accessory.updateSuggestions(suggestions)
+    }
+
+    private static func isPrintable(_ ch: Character) -> Bool {
+        if let ascii = ch.asciiValue { return ascii >= 0x20 && ascii != 0x7f }
+        return !ch.isNewline // keep non-ASCII letters / symbols
+    }
+
     /// Current terminal grid size (columns, rows). Falls back to 80x24 before
     /// the surface has been laid out.
     var gridSize: (cols: Int, rows: Int) {
@@ -218,6 +297,7 @@ final class TerminalSurfaceView: UIView {
     /// Send printable text (bypasses key encoding). Use for IME / pasted text.
     func sendText(_ text: String) {
         guard let surface, !text.isEmpty else { return }
+        noteInputText(text)
         let len = text.utf8.count
         text.withCString { ptr in
             ghostty_surface_text(surface, ptr, UInt(len))
@@ -233,6 +313,7 @@ final class TerminalSurfaceView: UIView {
         text: String? = nil
     ) {
         guard let surface else { return }
+        if action == .press { noteInputKey(key, mods: mods) }
         let ev = Ghostty.KeyEvent(key: key, action: action, mods: mods, text: text)
         ev.withCValue { c in
             _ = ghostty_surface_key(surface, c)

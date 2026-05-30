@@ -4,6 +4,9 @@ import UIKit
 /// users the keys a shell needs but iOS keyboards lack: Esc, Ctrl, Alt, Tab,
 /// arrows, navigation, and common punctuation. Ctrl/Alt are sticky (tap to
 /// arm; applied to the next keystroke).
+///
+/// When the user is typing a command, a history-based autocomplete row appears
+/// above the key bar; tapping a suggestion sends its remaining characters.
 final class AccessoryKeyboardView: UIInputView {
     private weak var target: TerminalSurfaceView?
     private var ctrlButton: UIButton?
@@ -12,14 +15,19 @@ final class AccessoryKeyboardView: UIInputView {
     private var functionKeys: [UIButton] = []
     private var fnVisible = false
 
-    private static let barHeight: CGFloat = 48
+    private var suggestionScroll: UIScrollView?
+    private var suggestionStack: UIStackView?
+    private var suggestionsVisible = false
+
+    private static let keysHeight: CGFloat = 48
+    private static let suggestionHeight: CGFloat = 44
     private static let functionKeyList: [Ghostty.Key] =
         [.f1, .f2, .f3, .f4, .f5, .f6, .f7, .f8, .f9, .f10, .f11, .f12]
 
     init(target: TerminalSurfaceView) {
         self.target = target
         super.init(
-            frame: CGRect(x: 0, y: 0, width: 0, height: Self.barHeight),
+            frame: CGRect(x: 0, y: 0, width: 0, height: Self.keysHeight),
             inputViewStyle: .keyboard
         )
         allowsSelfSizing = true
@@ -30,16 +38,34 @@ final class AccessoryKeyboardView: UIInputView {
     required init?(coder: NSCoder) { fatalError("not supported") }
 
     override var intrinsicContentSize: CGSize {
-        CGSize(width: UIView.noIntrinsicMetric, height: Self.barHeight)
+        let height = Self.keysHeight + (suggestionsVisible ? Self.suggestionHeight : 0)
+        return CGSize(width: UIView.noIntrinsicMetric, height: height)
     }
 
     private func build() {
+        let root = UIStackView()
+        root.axis = .vertical
+        root.spacing = 0
+        root.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(root)
+        NSLayoutConstraint.activate([
+            root.leadingAnchor.constraint(equalTo: leadingAnchor),
+            root.trailingAnchor.constraint(equalTo: trailingAnchor),
+            root.topAnchor.constraint(equalTo: topAnchor),
+            root.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        root.addArrangedSubview(buildSuggestionRow())
+        root.addArrangedSubview(buildKeysRow())
+    }
+
+    // MARK: Suggestion row
+
+    private func buildSuggestionRow() -> UIView {
         let scroll = UIScrollView()
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.showsHorizontalScrollIndicator = false
         scroll.alwaysBounceHorizontal = true
         scroll.keyboardDismissMode = .none
-        addSubview(scroll)
 
         let stack = UIStackView()
         stack.axis = .horizontal
@@ -49,10 +75,72 @@ final class AccessoryKeyboardView: UIInputView {
         scroll.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scroll.topAnchor.constraint(equalTo: topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
+            scroll.heightAnchor.constraint(equalToConstant: Self.suggestionHeight),
+            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -8),
+            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+            stack.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor),
+        ])
+
+        scroll.isHidden = true // collapsed until there are suggestions
+        suggestionScroll = scroll
+        suggestionStack = stack
+        return scroll
+    }
+
+    /// Replace the autocomplete suggestions. Passing an empty array collapses
+    /// the row.
+    func updateSuggestions(_ suggestions: [String]) {
+        guard let stack = suggestionStack, let scroll = suggestionScroll else { return }
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for suggestion in suggestions {
+            stack.addArrangedSubview(suggestionChip(suggestion))
+        }
+        scroll.setContentOffset(.zero, animated: false)
+
+        let visible = !suggestions.isEmpty
+        guard visible != suggestionsVisible else { return }
+        suggestionsVisible = visible
+        scroll.isHidden = !visible
+        invalidateIntrinsicContentSize()
+    }
+
+    private func suggestionChip(_ text: String) -> UIButton {
+        let button = UIButton(type: .system)
+        var config = UIButton.Configuration.tinted()
+        config.title = text
+        config.baseForegroundColor = .label
+        config.cornerStyle = .medium
+        config.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
+        button.configuration = config
+        button.titleLabel?.font = .systemFont(ofSize: 14)
+        button.titleLabel?.lineBreakMode = .byTruncatingTail
+        button.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
+        button.addAction(UIAction { [weak self] _ in
+            self?.target?.applySuggestion(text)
+        }, for: .touchUpInside)
+        return button
+    }
+
+    // MARK: Keys row
+
+    private func buildKeysRow() -> UIView {
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.alwaysBounceHorizontal = true
+        scroll.keyboardDismissMode = .none
+
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 6
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            scroll.heightAnchor.constraint(equalToConstant: Self.keysHeight),
             stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 8),
             stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -8),
             stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 6),
@@ -108,6 +196,8 @@ final class AccessoryKeyboardView: UIInputView {
             functionKeys.append(button)
             stack.addArrangedSubview(button)
         }
+
+        return scroll
     }
 
     /// Show/hide the F1–F12 row.

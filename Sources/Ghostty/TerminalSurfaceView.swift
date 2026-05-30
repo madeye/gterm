@@ -73,6 +73,7 @@ final class TerminalSurfaceView: UIView {
         }
         self.surface = surface
         setupSelectionGestures()
+        setupScrollGesture()
     }
 
     // MARK: Selection / clipboard gesture state (see TerminalSurfaceView+Selection)
@@ -81,6 +82,16 @@ final class TerminalSurfaceView: UIView {
     /// count as a selection drag (vs. a stationary hold-to-paste).
     var selectionStart: CGPoint?
     var selectionMoved = false
+
+    // MARK: Scroll gesture state (see TerminalSurfaceView+Scroll)
+
+    /// Cumulative pan translation already converted to scroll, so each `.changed`
+    /// only forwards the incremental delta.
+    var lastScrollTranslationY: CGFloat = 0
+
+    /// The scroll pan recognizer, disabled while a selection long-press is active
+    /// so the two gestures never run together.
+    weak var scrollPan: UIPanGestureRecognizer?
 
     required init?(coder: NSCoder) { fatalError("not supported") }
 

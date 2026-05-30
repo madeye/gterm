@@ -33,6 +33,7 @@ extension TerminalSurfaceView {
         case .began:
             selectionStart = location
             selectionMoved = false
+            scrollPan?.isEnabled = false // don't scroll while selecting
             sendMousePos(location, surface: surface)
             _ = ghostty_surface_mouse_button(surface, GHOSTTY_MOUSE_PRESS, GHOSTTY_MOUSE_LEFT, noMods)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -55,6 +56,7 @@ extension TerminalSurfaceView {
             }
             selectionStart = nil
             selectionMoved = false
+            scrollPan?.isEnabled = true // re-enable scrolling
 
         default:
             break

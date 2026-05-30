@@ -1,1 +1,1 @@
-gterm
+gterm: Ghostty SSH

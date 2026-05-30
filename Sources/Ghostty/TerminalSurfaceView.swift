@@ -72,7 +72,15 @@ final class TerminalSurfaceView: UIView {
             return
         }
         self.surface = surface
+        setupSelectionGestures()
     }
+
+    // MARK: Selection / clipboard gesture state (see TerminalSurfaceView+Selection)
+
+    /// Where the active long-press began, and whether it has moved far enough to
+    /// count as a selection drag (vs. a stationary hold-to-paste).
+    var selectionStart: CGPoint?
+    var selectionMoved = false
 
     required init?(coder: NSCoder) { fatalError("not supported") }
 

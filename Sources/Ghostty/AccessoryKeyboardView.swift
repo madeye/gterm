@@ -19,6 +19,11 @@ final class AccessoryKeyboardView: UIInputView {
     private var suggestionStack: UIStackView?
     private var suggestionsVisible = false
 
+    /// History-based suggestions (instant) and the AI suggestion (async). The AI
+    /// chip is rendered first, distinctly; both insert a full command line.
+    private var historySuggestions: [String] = []
+    private var aiSuggestion: String?
+
     private static let keysHeight: CGFloat = 48
     private static let suggestionHeight: CGFloat = 44
     private static let functionKeyList: [Ghostty.Key] =
@@ -89,34 +94,56 @@ final class AccessoryKeyboardView: UIInputView {
         return scroll
     }
 
-    /// Replace the autocomplete suggestions. Passing an empty array collapses
-    /// the row.
-    func updateSuggestions(_ suggestions: [String]) {
+    /// Set the instant, history-based suggestions. Passing an empty array clears
+    /// them (the AI chip, if any, stays).
+    func setHistorySuggestions(_ suggestions: [String]) {
+        historySuggestions = suggestions
+        rebuildSuggestions()
+    }
+
+    /// Set the async AI suggestion (the full predicted command line), or nil to
+    /// clear it.
+    func setAISuggestion(_ suggestion: String?) {
+        aiSuggestion = suggestion
+        rebuildSuggestions()
+    }
+
+    private func rebuildSuggestions() {
         guard let stack = suggestionStack, let scroll = suggestionScroll else { return }
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for suggestion in suggestions {
-            stack.addArrangedSubview(suggestionChip(suggestion))
+
+        if let ai = aiSuggestion, !ai.isEmpty {
+            stack.addArrangedSubview(suggestionChip(ai, isAI: true))
+        }
+        // Don't duplicate a history chip identical to the AI prediction.
+        for suggestion in historySuggestions where suggestion != aiSuggestion {
+            stack.addArrangedSubview(suggestionChip(suggestion, isAI: false))
         }
         scroll.setContentOffset(.zero, animated: false)
 
-        let visible = !suggestions.isEmpty
+        let visible = !stack.arrangedSubviews.isEmpty
         guard visible != suggestionsVisible else { return }
         suggestionsVisible = visible
         scroll.isHidden = !visible
         invalidateIntrinsicContentSize()
     }
 
-    private func suggestionChip(_ text: String) -> UIButton {
+    private func suggestionChip(_ text: String, isAI: Bool) -> UIButton {
         let button = UIButton(type: .system)
         var config = UIButton.Configuration.tinted()
         config.title = text
-        config.baseForegroundColor = .label
+        config.baseForegroundColor = isAI ? .systemPurple : .label
+        if isAI {
+            config.image = UIImage(systemName: "sparkles")
+            config.imagePadding = 5
+            config.imagePlacement = .leading
+        }
         config.cornerStyle = .medium
         config.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
         button.configuration = config
         button.titleLabel?.font = .systemFont(ofSize: 14)
         button.titleLabel?.lineBreakMode = .byTruncatingTail
-        button.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
+        button.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
         button.addAction(UIAction { [weak self] _ in
             self?.target?.applySuggestion(text)
         }, for: .touchUpInside)

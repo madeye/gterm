@@ -1,0 +1,56 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    name: GhosttyKit engine
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify ghostty submodule
+        run: |
+          if [ ! -f ghostty/build.zig ]; then
+            echo "::error::ghostty submodule is not checked out (ghostty/build.zig missing)"
+            exit 1
+          fi
+          echo "ghostty pinned at $(git -C ghostty rev-parse HEAD)"
+
+      - name: Install zig 0.15
+        run: brew install zig@0.15
+
+      # libghostty + its zig deps land in ~/.cache/zig; keyed on the engine's
+      # dependency manifest + build graph so a cache hit skips the slow
+      # fetch/compile and only invalidates when the submodule bumps.
+      - name: Cache zig build
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/zig
+          key: zig-${{ runner.os }}-${{ hashFiles('ghostty/build.zig.zon', 'ghostty/build.zig') }}
+          restore-keys: |
+            zig-${{ runner.os }}-
+
+      - name: Build GhosttyKit.xcframework
+        run: ./scripts/build-ghostty-xcframework.sh
+
+      - name: Upload GhosttyKit.xcframework
+        uses: actions/upload-artifact@v4
+        with:
+          name: GhosttyKit-xcframework
+          path: GhosttyKit.xcframework
+          if-no-files-found: error
+          retention-days: 7

@@ -8,8 +8,13 @@ final class AccessoryKeyboardView: UIInputView {
     private weak var target: TerminalSurfaceView?
     private var ctrlButton: UIButton?
     private var altButton: UIButton?
+    private var fnButton: UIButton?
+    private var functionKeys: [UIButton] = []
+    private var fnVisible = false
 
     private static let barHeight: CGFloat = 48
+    private static let functionKeyList: [Ghostty.Key] =
+        [.f1, .f2, .f3, .f4, .f5, .f6, .f7, .f8, .f9, .f10, .f11, .f12]
 
     init(target: TerminalSurfaceView) {
         self.target = target
@@ -73,6 +78,13 @@ final class AccessoryKeyboardView: UIInputView {
         stack.addArrangedSubview(alt)
 
         stack.addArrangedSubview(specialButton("tab") { $0.pressSpecial(.tab) })
+
+        // Fn toggles a function-key row (F1–F12) in/out of view.
+        let fn = makeButton("fn")
+        fn.addAction(UIAction { [weak self] _ in self?.toggleFunctionKeys() }, for: .touchUpInside)
+        fnButton = fn
+        stack.addArrangedSubview(fn)
+
         stack.addArrangedSubview(specialButton("◀") { $0.pressSpecial(.left) })
         stack.addArrangedSubview(specialButton("▲") { $0.pressSpecial(.up) })
         stack.addArrangedSubview(specialButton("▼") { $0.pressSpecial(.down) })
@@ -83,10 +95,26 @@ final class AccessoryKeyboardView: UIInputView {
             stack.addArrangedSubview(specialButton(sym) { $0.insertSymbol(sym) })
         }
 
+        stack.addArrangedSubview(specialButton("del") { $0.pressSpecial(.delete) })
         stack.addArrangedSubview(specialButton("home") { $0.pressSpecial(.home) })
         stack.addArrangedSubview(specialButton("end") { $0.pressSpecial(.end) })
         stack.addArrangedSubview(specialButton("pgup") { $0.pressSpecial(.pageUp) })
         stack.addArrangedSubview(specialButton("pgdn") { $0.pressSpecial(.pageDown) })
+
+        // Function keys (hidden until Fn is tapped).
+        for (i, key) in Self.functionKeyList.enumerated() {
+            let button = specialButton("F\(i + 1)") { $0.pressSpecial(key) }
+            button.isHidden = true
+            functionKeys.append(button)
+            stack.addArrangedSubview(button)
+        }
+    }
+
+    /// Show/hide the F1–F12 row.
+    private func toggleFunctionKeys() {
+        fnVisible.toggle()
+        setArmed(fnButton, fnVisible)
+        for button in functionKeys { button.isHidden = !fnVisible }
     }
 
     /// Reset the visual armed state of the modifier keys.

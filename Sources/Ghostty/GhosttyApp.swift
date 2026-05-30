@@ -11,6 +11,7 @@ extension Ghostty {
     final class App: ObservableObject {
         let config: Config
         private(set) var app: ghostty_app_t?
+        private var displayLink: CADisplayLink?
 
         init() {
             // ghostty_init must be called exactly once before ghostty_app_new.
@@ -41,15 +42,33 @@ extension Ghostty {
             }
             self.app = app
             ghostty_app_set_focus(app, true)
+            startDisplayLink()
         }
 
         deinit {
+            displayLink?.invalidate()
             if let app { ghostty_app_free(app) }
         }
 
         func tick() {
             guard let app else { return }
             ghostty_app_tick(app)
+        }
+
+        /// Drive `ghostty_app_tick` once per display refresh so animations
+        /// (cursor blink, etc.) advance smoothly, in addition to the on-demand
+        /// wakeup callback. A weak proxy avoids the CADisplayLink→target retain
+        /// cycle so the app can still be torn down.
+        private func startDisplayLink() {
+            let link = CADisplayLink(target: DisplayLinkProxy(self), selector: #selector(DisplayLinkProxy.step))
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        }
+
+        private final class DisplayLinkProxy {
+            weak var app: App?
+            init(_ app: App) { self.app = app }
+            @objc func step() { app?.tick() }
         }
 
         func setColorScheme(_ scheme: ghostty_color_scheme_e) {

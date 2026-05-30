@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>gterm — a real terminal on iOS, over SSH</title>
+<meta name="description" content="gterm is an iOS terminal that renders with Ghostty's GPU engine, connects over SSH, manages your keys in the Secure Enclave, and ships an AI command assistant." />
+<meta name="theme-color" content="#0a0b0f" />
+<link rel="icon" href="assets/icon.png" />
+<link rel="apple-touch-icon" href="assets/icon.png" />
+<link rel="canonical" href="https://madeye.github.io/gterm/" />
+
+<!-- Social card (Open Graph) -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="gterm" />
+<meta property="og:url" content="https://madeye.github.io/gterm/" />
+<meta property="og:title" content="gterm — a real terminal on iOS, over SSH" />
+<meta property="og:description" content="A Ghostty-powered iOS terminal with on-device SSH keys and an AI command assistant." />
+<meta property="og:image" content="https://madeye.github.io/gterm/assets/og-card.png" />
+<meta property="og:image:secure_url" content="https://madeye.github.io/gterm/assets/og-card.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="gterm — a Ghostty-powered iOS terminal, over SSH" />
+
+<!-- Social card (Twitter / X) -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="gterm — a real terminal on iOS, over SSH" />
+<meta name="twitter:description" content="A Ghostty-powered iOS terminal with on-device SSH keys and an AI command assistant." />
+<meta name="twitter:image" content="https://madeye.github.io/gterm/assets/og-card.png" />
+<meta name="twitter:image:alt" content="gterm — a Ghostty-powered iOS terminal, over SSH" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0a0b0f; --bg-2:#0d0e13; --surface:#14151c; --surface-2:#181a22;
+    --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.12);
+    --text:#e9eaf2; --muted:#9a9cb2; --faint:#6b6d82;
+    --cyan:#2ecbe3; --cyan-bright:#38e1fb; --violet:#977ce9; --violet-bright:#ac95fe;
+    --silver:#dad9e0;
+    --grad:linear-gradient(105deg,var(--cyan) 0%,var(--violet) 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  /* ambient glows */
+  body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(120px);opacity:.5;pointer-events:none}
+  body::before{width:680px;height:680px;top:-260px;left:-180px;background:radial-gradient(circle,rgba(46,203,227,.45),transparent 70%)}
+  body::after{width:720px;height:720px;bottom:-320px;right:-220px;background:radial-gradient(circle,rgba(151,124,233,.4),transparent 70%)}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+  .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--border-2);border-radius:999px;background:rgba(255,255,255,.03);font-size:13px;color:var(--muted);font-weight:500}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan-bright)}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(11,12,16,.6);border-bottom:1px solid var(--border)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:66px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:18px;letter-spacing:-.01em}
+  .brand img{width:34px;height:34px;border-radius:9px}
+  .nav-links{display:flex;align-items:center;gap:26px;font-size:14px;color:var(--muted);font-weight:500}
+  .nav-links a:hover{color:var(--text)}
+  .btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;padding:11px 20px;border-radius:11px;transition:transform .15s ease,box-shadow .2s ease,background .2s}
+  .btn-primary{background:var(--grad);color:#07090d;box-shadow:0 6px 26px rgba(46,203,227,.28)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 34px rgba(120,170,246,.4)}
+  .btn-ghost{border:1px solid var(--border-2);color:var(--text);background:rgba(255,255,255,.02)}
+  .btn-ghost:hover{border-color:var(--cyan);color:#fff}
+
+  /* hero */
+  .hero{padding:92px 0 40px;display:grid;grid-template-columns:1.05fr .95fr;gap:54px;align-items:center}
+  .hero h1{font-size:62px;line-height:1.04;font-weight:800;letter-spacing:-.03em;margin:22px 0 18px}
+  .hero p.lead{font-size:19px;color:var(--muted);max-width:520px;margin-bottom:30px}
+  .hero p.lead b{color:var(--text);font-weight:600}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .cta-note{font-size:13px;color:var(--faint);margin-top:18px;display:flex;align-items:center;gap:8px}
+
+  /* terminal mock */
+  .term{border-radius:16px;overflow:hidden;border:1px solid var(--border-2);
+    background:linear-gradient(180deg,#121319,#0c0d12);
+    box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(46,203,227,.06),0 0 60px rgba(46,203,227,.10)}
+  .term-bar{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02)}
+  .tl{width:12px;height:12px;border-radius:50%}
+  .tl.r{background:#ff5f57}.tl.y{background:#febc2e}.tl.g{background:#28c840}
+  .term-title{margin-left:8px;font:500 12.5px 'JetBrains Mono',monospace;color:var(--faint)}
+  .term-body{padding:20px 20px 24px;font:500 14px/1.75 'JetBrains Mono',monospace;color:#cfd2e6}
+  .term-body .pr{color:var(--cyan)}
+  .term-body .pth{color:var(--violet)}
+  .term-body .dim{color:var(--faint)}
+  .term-body .ok{color:#28c840}
+  .cursor{display:inline-block;width:9px;height:18px;vertical-align:-3px;background:var(--violet);box-shadow:0 0 10px var(--violet-bright);animation:blink 1.1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .ai-sug{margin-top:14px;display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:11px;
+    border:1px solid rgba(46,203,227,.28);background:linear-gradient(90deg,rgba(46,203,227,.10),rgba(151,124,233,.10))}
+  .ai-sug .spark{font-size:15px}
+  .ai-sug code{color:var(--cyan-bright);font:600 13.5px 'JetBrains Mono',monospace}
+  .ai-sug .tag{margin-left:auto;font-size:11px;color:var(--faint)}
+
+  /* section heading */
+  section{padding:74px 0}
+  .sec-head{text-align:center;max-width:620px;margin:0 auto 52px}
+  .sec-head h2{font-size:40px;font-weight:800;letter-spacing:-.025em;margin:14px 0 12px}
+  .sec-head p{color:var(--muted);font-size:17px}
+
+  /* features */
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{padding:26px;border-radius:16px;border:1px solid var(--border);background:linear-gradient(180deg,var(--surface),var(--bg-2));transition:transform .18s,border-color .2s}
+  .card:hover{transform:translateY(-4px);border-color:var(--border-2)}
+  .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin-bottom:16px;
+    background:rgba(46,203,227,.10);border:1px solid rgba(46,203,227,.22)}
+  .ic svg{width:23px;height:23px;stroke:var(--cyan);fill:none;stroke-width:1.8}
+  .card.v .ic{background:rgba(151,124,233,.10);border-color:rgba(151,124,233,.24)}
+  .card.v .ic svg{stroke:var(--violet)}
+  .card h3{font-size:18.5px;font-weight:700;margin-bottom:7px;letter-spacing:-.01em}
+  .card p{color:var(--muted);font-size:14.5px}
+
+  /* engine band */
+  .band{border-radius:22px;border:1px solid var(--border);overflow:hidden;
+    background:radial-gradient(120% 140% at 0% 0%,rgba(46,203,227,.12),transparent 55%),radial-gradient(120% 140% at 100% 100%,rgba(151,124,233,.12),transparent 55%),var(--surface);
+    padding:48px 46px;display:grid;grid-template-columns:1.2fr 1fr;gap:40px;align-items:center}
+  .band h2{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:14px}
+  .band p{color:var(--muted);font-size:16px;max-width:520px}
+  .band .stats{display:flex;gap:30px;margin-top:26px}
+  .band .stats .s b{display:block;font-size:26px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .band .stats .s span{font-size:13px;color:var(--faint)}
+  .band-art{display:flex;justify-content:center}
+  .band-art img{width:150px;height:150px;border-radius:34px;box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 60px rgba(46,203,227,.18)}
+
+  /* screenshots */
+  .shots{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;justify-items:center}
+  .phone{position:relative;width:248px;padding:11px;border-radius:42px;background:linear-gradient(160deg,#23252e,#101116);border:1px solid var(--border-2);box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.03)}
+  .phone img{width:100%;border-radius:32px;display:block}
+  .phone .cap{position:absolute;bottom:-34px;left:0;right:0;text-align:center;font-size:13.5px;color:var(--muted);font-weight:500}
+  .shots-row{margin-bottom:42px}
+
+  /* footer */
+  footer{border-top:1px solid var(--border);padding:46px 0 60px;margin-top:30px}
+  footer .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px}
+  footer .brand img{width:30px;height:30px}
+  .foot-links{display:flex;gap:24px;font-size:14px;color:var(--muted)}
+  .foot-links a:hover{color:var(--text)}
+  .copy{font-size:13px;color:var(--faint)}
+
+  @media (max-width:920px){
+    .hero{grid-template-columns:1fr;gap:40px;padding-top:64px}
+    .hero h1{font-size:46px}
+    .feat-grid,.shots{grid-template-columns:1fr}
+    .band{grid-template-columns:1fr;text-align:center}
+    .band p{margin:0 auto}.band .stats{justify-content:center}.band-art{order:-1}
+    .nav-links{display:none}
+    .shots{gap:54px}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="assets/icon.png" alt="gterm icon" /> gterm</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#engine">Engine</a>
+      <a href="#shots">Screens</a>
+    </div>
+    <a class="btn btn-primary" href="https://github.com/madeye/gterm">
+      <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<a id="top"></a>
+<header class="wrap hero">
+  <div>
+    <span class="pill"><span class="dot"></span> Powered by libghostty · GPU / Metal</span>
+    <h1>A real terminal<br/>in your pocket,<br/><span class="grad-text">over SSH.</span></h1>
+    <p class="lead"><b>gterm</b> renders with Ghostty's GPU engine for true xterm/VT emulation, connects straight to your servers over SSH, keeps your keys on-device, and ships an <b>AI command assistant</b> that writes the commands for you.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/madeye/gterm">Get it on GitHub →</a>
+      <a class="btn btn-ghost" href="#features">See what it does</a>
+    </div>
+    <div class="cta-note"><span class="dot" style="background:var(--violet);box-shadow:0 0 10px var(--violet-bright)"></span> Ed25519 / ECDSA keys · trust-on-first-use host keys · device-only</div>
+  </div>
+
+  <div class="term" aria-hidden="true">
+    <div class="term-bar"><span class="tl r"></span><span class="tl y"></span><span class="tl g"></span><span class="term-title">dev@demo-server — ssh</span></div>
+    <div class="term-body">
+<span class="pr">dev@demo-server</span>:<span class="pth">~/project</span>$ ls<br/>
+README.md&nbsp;&nbsp;app.py&nbsp;&nbsp;package.json&nbsp;&nbsp;<span class="pth">src</span>&nbsp;&nbsp;<span class="pth">logs</span><br/>
+<span class="pr">dev@demo-server</span>:<span class="pth">~/project</span>$ <span class="dim">git status</span><br/>
+<span class="ok">On branch main · working tree clean</span><br/>
+<span class="pr">dev@demo-server</span>:<span class="pth">~/project</span>$ <span class="cursor"></span>
+      <div class="ai-sug">
+        <span class="spark">✦</span>
+        <span style="color:var(--muted);font-size:13px">AI suggests</span>
+        <code>tail -f logs/app.log | grep ERROR</code>
+        <span class="tag">⏎ to run</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="pill"><span class="dot"></span> Built for getting real work done</span>
+      <h2>Everything a shell needs.<br/>Nothing it doesn't.</h2>
+      <p>A lean Swift layer over libghostty, a proper SSH transport, and an AI layer that actually understands your session.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m8 9 3 3-3 3M13 15h4"/></svg></div>
+        <h3>GPU-rendered terminal</h3>
+        <p>Real xterm/VT emulation via Ghostty's <code>libghostty</code>, drawn on Metal. Colors, ligatures, and reflow that feel native — not a web shim.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 3 2 5 2 7v3h10v-3c0-2 2-4 2-7a7 7 0 0 0-7-7Z"/><path d="M9 21h6"/></svg></div>
+        <h3>SSH-native</h3>
+        <p>Connects with <b>swift-nio-ssh</b> — password & public-key auth, PTY shell, live window resizing, and trust-on-first-use host-key verification.</p>
+      </div>
+      <div class="card v">
+        <div class="ic"><svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8 2 2-2 2 2 2-3 3-2-2-2 2"/></svg></div>
+        <h3>Keys stay on device</h3>
+        <p>Import Ed25519 / ECDSA private keys into the iOS Keychain — device-only, never synced. Pick one or more keys to try per host.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h0M11 10h0M15 10h0M7 14h10"/></svg></div>
+        <h3>Shell-grade keyboard</h3>
+        <p>A custom accessory keyboard with the keys iOS forgets — Esc, Ctrl, Alt, Tab, arrows, and sticky modifiers for real TUI navigation.</p>
+      </div>
+      <div class="card v">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/></svg></div>
+        <h3>AI command assistant</h3>
+        <p>Describe what you want in plain English. The AI reads your recent commands and visible screen, proposes a command, and shows it for review before it runs.</p>
+      </div>
+      <div class="card v">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 7h11M4 12h7M4 17h13"/><path d="M17 9l3 3-3 3"/></svg></div>
+        <h3>AI auto-completion</h3>
+        <p>As you type, suggestions surface above the keyboard — from your history and from your provider. Bring your own key; it's stored masked in the Keychain.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="engine" style="padding-top:18px">
+  <div class="wrap">
+    <div class="band">
+      <div>
+        <span class="pill"><span class="dot"></span> The engine</span>
+        <h2 style="margin-top:14px">It's the <span class="grad-text">real Ghostty</span>, on iOS.</h2>
+        <p>iOS can't <code>fork</code>/<code>exec</code> a local shell — so gterm adds a <b>passthru IO backend</b> to libghostty that drives the terminal straight from the SSH stream. You get the same GPU renderer and VT parser as the desktop app, in a sandboxed iOS surface.</p>
+        <div class="stats">
+          <div class="s"><b>GPU</b><span>Metal renderer</span></div>
+          <div class="s"><b>VT</b><span>full xterm emulation</span></div>
+          <div class="s"><b>Swift</b><span>lean native layer</span></div>
+        </div>
+      </div>
+      <div class="band-art"><img src="assets/icon.png" alt="gterm app icon" /></div>
+    </div>
+  </div>
+</section>
+
+<section id="shots">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="pill"><span class="dot"></span> A look inside</span>
+      <h2>Hosts, keys, and AI —<br/>in one clean app.</h2>
+    </div>
+    <div class="shots shots-row">
+      <div class="phone"><img src="assets/shot-hosts.png" alt="Saved SSH hosts" /><div class="cap">Saved hosts</div></div>
+      <div class="phone"><img src="assets/shot-keys.png" alt="SSH key management" /><div class="cap">On-device keys</div></div>
+      <div class="phone"><img src="assets/shot-aikey.png" alt="AI provider with masked API key" /><div class="cap">AI providers · masked keys</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="assets/icon.png" alt="" /> gterm</a>
+    <div class="foot-links">
+      <a href="https://github.com/madeye/gterm">GitHub</a>
+      <a href="https://github.com/madeye/gterm/blob/main/PLAN.md">Architecture</a>
+      <a href="https://github.com/madeye/ghostty">Ghostty fork</a>
+    </div>
+    <div class="copy">Built on a fork of Ghostty · © madeye</div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,13 +1,16 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 /// The "Keys" tab: import and manage SSH private keys. Keys are validated on
-/// import and stored securely in the Keychain (device-only).
+/// import and stored securely in the Keychain (device-only). Keys can be
+/// imported from a file or pasted in as plain text.
 struct KeyListView: View {
     @ObservedObject var store: KeyStore
     @ObservedObject var connections: ConnectionStore
 
     @State private var importing = false
+    @State private var pastingText = false
     @State private var pendingText: String?
     @State private var pendingName = ""
     @State private var importError: String?
@@ -40,7 +43,20 @@ struct KeyListView: View {
             .navigationTitle("Keys")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { importing = true } label: { Image(systemName: "plus") }
+                    Menu {
+                        Button {
+                            importing = true
+                        } label: {
+                            Label("Import from File", systemImage: "doc")
+                        }
+                        Button {
+                            pastingText = true
+                        } label: {
+                            Label("Enter Text", systemImage: "doc.plaintext")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
             .fileImporter(
@@ -49,6 +65,12 @@ struct KeyListView: View {
                 allowsMultipleSelection: false
             ) { result in
                 readFile(result)
+            }
+            .sheet(isPresented: $pastingText) {
+                PasteKeyView { name, text in
+                    pastingText = false
+                    importText(name: name, text: text)
+                }
             }
             .alert("Name this key", isPresented: Binding(
                 get: { pendingText != nil },
@@ -94,6 +116,18 @@ struct KeyListView: View {
         }
     }
 
+    /// Import a key supplied as plain text (pasted or typed). Validates the key
+    /// material and stores it directly; the name is taken from the paste sheet.
+    private func importText(name: String, text: String) {
+        do {
+            try store.importKey(name: name, text: text)
+        } catch let error as SSHKeyError {
+            importError = error.description
+        } catch {
+            importError = error.localizedDescription
+        }
+    }
+
     private func saveImported() {
         guard let text = pendingText else { return }
         pendingText = nil
@@ -103,6 +137,72 @@ struct KeyListView: View {
             importError = error.description
         } catch {
             importError = error.localizedDescription
+        }
+    }
+}
+
+/// A sheet for importing an SSH private key from plain text. Provides a name
+/// field, a multi-line editor for the key material, and a Paste button that
+/// pulls the current clipboard contents into the editor.
+private struct PasteKeyView: View {
+    /// Called with (name, keyText) when the user taps Import.
+    let onImport: (String, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var keyText = ""
+
+    private var trimmedKey: String {
+        keyText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Name") {
+                    TextField("Optional name", text: $name)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                Section {
+                    TextEditor(text: $keyText)
+                        .font(.system(.footnote, design: .monospaced))
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .frame(minHeight: 220)
+                } header: {
+                    HStack {
+                        Text("Private Key")
+                        Spacer()
+                        Button {
+                            if let clip = UIPasteboard.general.string {
+                                keyText = clip
+                            }
+                        } label: {
+                            Label("Paste", systemImage: "doc.on.clipboard")
+                                .labelStyle(.titleAndIcon)
+                                .font(.caption)
+                        }
+                        .textCase(nil)
+                        .disabled(!UIPasteboard.general.hasStrings)
+                    }
+                } footer: {
+                    Text("Paste an OpenSSH or PEM private key. It is validated on import and stored in the Keychain (device-only).")
+                }
+            }
+            .navigationTitle("Enter Key")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Import") {
+                        onImport(name.trimmingCharacters(in: .whitespaces), trimmedKey)
+                    }
+                    .disabled(trimmedKey.isEmpty)
+                }
+            }
         }
     }
 }

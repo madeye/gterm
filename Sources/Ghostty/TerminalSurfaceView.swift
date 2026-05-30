@@ -363,6 +363,18 @@ final class TerminalSurfaceView: UIView {
         }
     }
 
+    /// Type a command into the terminal and run it. Multi-line input is sent
+    /// line by line, each followed by Enter. Used by the AI command assistant;
+    /// goes through the typed-key path so it is never bracketed-paste wrapped.
+    func runCommand(_ command: String) {
+        let lines = command.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { sendCharacter(trimmed) }
+            sendKey(.enter)
+        }
+    }
+
     /// Send a key press through ghostty's encoder (mode-aware). Use for special
     /// keys (arrows, esc, tab, enter, ...) and control combos (Ctrl-C).
     func sendKey(

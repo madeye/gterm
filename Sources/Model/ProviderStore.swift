@@ -91,7 +91,14 @@ final class ProviderStore: ObservableObject {
     /// True when AI completion is fully usable: enabled, a provider is selected,
     /// and that provider has a non-empty API key.
     var isReady: Bool {
-        guard isEnabled, let provider = activeProvider else { return false }
+        isEnabled && hasUsableProvider
+    }
+
+    /// True when a provider is selected and has a non-empty API key, regardless
+    /// of the autocomplete toggle. The command assistant uses this — it works
+    /// even when inline completion is turned off.
+    var hasUsableProvider: Bool {
+        guard let provider = activeProvider else { return false }
         let key = apiKey(for: provider.id)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return !key.isEmpty
     }

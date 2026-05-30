@@ -16,11 +16,13 @@ struct TerminalScreen: View {
 
     @State private var state: SSHSessionState = .idle
     @State private var hostKeyRequest: HostKeyPromptRequest?
+    @State private var terminalView: TerminalSurfaceView?
+    @State private var showingAICommands = false
 
     var body: some View {
         VStack(spacing: 0) {
             statusBar
-            TerminalView(ghostty: ghostty) { view in
+            TerminalView(ghostty: ghostty, makeSession: { view in
                 SSHSession(
                     connection: connection,
                     view: view,
@@ -30,7 +32,17 @@ struct TerminalScreen: View {
                 ) { newState in
                     state = newState
                 }
-            }
+            }, onCreate: { view in
+                DispatchQueue.main.async { terminalView = view }
+            })
+        }
+        .sheet(isPresented: $showingAICommands) {
+            AICommandSheet(
+                runCommand: { terminalView?.runCommand($0) },
+                gatherContext: {
+                    (terminalView?.readVisibleText() ?? "", CommandHistory.shared.recent(limit: 15))
+                }
+            )
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -93,6 +105,10 @@ struct TerminalScreen: View {
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)
             Spacer()
+            Button { showingAICommands = true } label: {
+                Image(systemName: "sparkles").font(.body.weight(.semibold))
+            }
+            .accessibilityLabel("AI commands")
             statusIndicator
         }
         .padding(.horizontal, 14)

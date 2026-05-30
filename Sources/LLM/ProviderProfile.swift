@@ -46,52 +46,64 @@ struct ProviderProfile: Codable, Equatable, Identifiable, Sendable {
         self.extraHeadersJSON = extraHeadersJSON
     }
 
+    // MARK: Presets
+
     static func openAIPreset() -> ProviderProfile {
-        ProviderProfile(
-            id: "preset.openai",
-            name: "OpenAI",
-            kind: .openAICompatible,
-            baseURL: "https://api.openai.com",
-            chatEndpoint: "/v1/chat/completions",
-            model: "gpt-4o-mini"
-        )
+        ProviderProfile(id: "preset.openai", name: "OpenAI", kind: .openAICompatible,
+                        baseURL: "https://api.openai.com", chatEndpoint: "/v1/chat/completions",
+                        model: "gpt-4o-mini")
     }
 
     static func anthropicPreset() -> ProviderProfile {
-        ProviderProfile(
-            id: "preset.anthropic",
-            name: "Anthropic",
-            kind: .anthropicMessages,
-            baseURL: "https://api.anthropic.com",
-            chatEndpoint: "/v1/messages",
-            model: "claude-3-5-haiku-latest"
-        )
+        ProviderProfile(id: "preset.anthropic", name: "Anthropic", kind: .anthropicMessages,
+                        baseURL: "https://api.anthropic.com", chatEndpoint: "/v1/messages",
+                        model: "claude-3-5-haiku-latest")
     }
 
     static func openRouterPreset() -> ProviderProfile {
-        ProviderProfile(
-            id: "preset.openrouter",
-            name: "OpenRouter",
-            kind: .openAICompatible,
-            baseURL: "https://openrouter.ai/api",
-            chatEndpoint: "/v1/chat/completions",
-            model: "openai/gpt-4o-mini"
-        )
+        ProviderProfile(id: "preset.openrouter", name: "OpenRouter", kind: .openAICompatible,
+                        baseURL: "https://openrouter.ai/api", chatEndpoint: "/v1/chat/completions",
+                        model: "openai/gpt-4o-mini")
     }
 
     static func groqPreset() -> ProviderProfile {
-        ProviderProfile(
-            id: "preset.groq",
-            name: "Groq",
-            kind: .openAICompatible,
-            baseURL: "https://api.groq.com/openai",
-            chatEndpoint: "/v1/chat/completions",
-            model: "llama-3.1-8b-instant"
-        )
+        ProviderProfile(id: "preset.groq", name: "Groq", kind: .openAICompatible,
+                        baseURL: "https://api.groq.com/openai", chatEndpoint: "/v1/chat/completions",
+                        model: "llama-3.1-8b-instant")
     }
 
-    /// Built-in starting points the user can pick and then fill in a key/model.
+    // China providers — base URLs/endpoints follow the runse project; model IDs
+    // are the current flagship-flash tiers. All speak the OpenAI-compatible API
+    // and stream via SSE.
+    static func deepSeekPreset() -> ProviderProfile {
+        ProviderProfile(id: "preset.deepseek", name: "DeepSeek China", kind: .openAICompatible,
+                        baseURL: "https://api.deepseek.com", chatEndpoint: "/chat/completions",
+                        model: "deepseek-v4-flash")
+    }
+
+    static func kimiPreset() -> ProviderProfile {
+        ProviderProfile(id: "preset.kimi", name: "Kimi China", kind: .openAICompatible,
+                        baseURL: "https://api.moonshot.cn/v1", chatEndpoint: "/chat/completions",
+                        model: "kimi-k2.6")
+    }
+
+    static func miniMaxPreset() -> ProviderProfile {
+        ProviderProfile(id: "preset.minimax", name: "MiniMax China", kind: .openAICompatible,
+                        baseURL: "https://api.minimaxi.com/v1", chatEndpoint: "/chat/completions",
+                        model: "MiniMax-M2.5")
+    }
+
+    static func glmPreset() -> ProviderProfile {
+        ProviderProfile(id: "preset.glm", name: "GLM China", kind: .openAICompatible,
+                        baseURL: "https://open.bigmodel.cn/api/paas/v4", chatEndpoint: "/chat/completions",
+                        model: "glm-5.1")
+    }
+
+    /// Built-in starting points the user can pick and then fill in a key.
     static func presets() -> [ProviderProfile] {
-        [openAIPreset(), anthropicPreset(), openRouterPreset(), groqPreset()]
+        [
+            openAIPreset(), anthropicPreset(), openRouterPreset(), groqPreset(),
+            deepSeekPreset(), kimiPreset(), miniMaxPreset(), glmPreset(),
+        ]
     }
 }

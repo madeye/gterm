@@ -30,58 +30,41 @@ final class ProviderRequestTests: XCTestCase {
         XCTAssertEqual(messages?.first?["role"], "user")
         XCTAssertEqual(messages?.first?["content"], "usr")
     }
+}
 
-    func testOpenAIURLRequestHasBearerAuthAndURL() throws {
-        let profile = ProviderProfile(
-            id: "x", name: "n", kind: .openAICompatible,
-            baseURL: "https://api.example.com/", chatEndpoint: "/v1/chat/completions", model: "m"
+/// Covers the streaming URL construction the OpenAI SDK consumes (the runse
+/// `ProviderURLSplitter`).
+final class ProviderURLSplitterTests: XCTestCase {
+    func testSplitsStandardOpenAIBase() {
+        let (scheme, host, port, basePath) = ProviderURLSplitter.split(
+            baseURL: "https://api.openai.com", endpoint: "/v1/chat/completions"
         )
-        let urlReq = try ProviderRequestFactory.urlRequest(
-            profile: profile, apiKey: "KEY",
-            request: LLMRequest(model: "m", systemPrompt: "s", userPrompt: "u")
-        )
-        XCTAssertEqual(urlReq.url?.absoluteString, "https://api.example.com/v1/chat/completions")
-        XCTAssertEqual(urlReq.httpMethod, "POST")
-        XCTAssertEqual(urlReq.value(forHTTPHeaderField: "Authorization"), "Bearer KEY")
-        XCTAssertEqual(urlReq.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(scheme, "https")
+        XCTAssertEqual(host, "api.openai.com")
+        XCTAssertEqual(port, 443)
+        // "/chat/completions" is stripped (the SDK re-appends it); "/v1" remains.
+        XCTAssertEqual(basePath, "/v1")
     }
 
-    func testAnthropicURLRequestHasAPIKeyHeaders() throws {
-        let profile = ProviderProfile(
-            id: "x", name: "n", kind: .anthropicMessages,
-            baseURL: "https://api.anthropic.com", chatEndpoint: "/v1/messages", model: "m"
+    func testSplitsChinaProviderWithPathPrefix() {
+        // GLM keeps its "/api/paas/v4" prefix once "/chat/completions" is stripped.
+        let (_, host, _, basePath) = ProviderURLSplitter.split(
+            baseURL: "https://open.bigmodel.cn/api/paas/v4", endpoint: "/chat/completions"
         )
-        let urlReq = try ProviderRequestFactory.urlRequest(
-            profile: profile, apiKey: "KEY",
-            request: LLMRequest(model: "m", systemPrompt: "s", userPrompt: "u")
-        )
-        XCTAssertEqual(urlReq.url?.absoluteString, "https://api.anthropic.com/v1/messages")
-        XCTAssertEqual(urlReq.value(forHTTPHeaderField: "x-api-key"), "KEY")
-        XCTAssertEqual(urlReq.value(forHTTPHeaderField: "anthropic-version"), "2023-06-01")
-        XCTAssertNil(urlReq.value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(host, "open.bigmodel.cn")
+        XCTAssertEqual(basePath, "/api/paas/v4")
     }
 
-    func testExtraHeadersApplied() throws {
-        let profile = ProviderProfile(
-            id: "x", name: "n", kind: .openAICompatible,
-            baseURL: "https://h.example.com", chatEndpoint: "/v1/chat/completions", model: "m",
-            extraHeadersJSON: #"{"X-Test":"yes"}"#
+    func testSplitsDeepSeekBareBase() {
+        let (_, host, _, basePath) = ProviderURLSplitter.split(
+            baseURL: "https://api.deepseek.com", endpoint: "/chat/completions"
         )
-        let urlReq = try ProviderRequestFactory.urlRequest(
-            profile: profile, apiKey: "K",
-            request: LLMRequest(model: "m", systemPrompt: "s", userPrompt: "u")
-        )
-        XCTAssertEqual(urlReq.value(forHTTPHeaderField: "X-Test"), "yes")
+        XCTAssertEqual(host, "api.deepseek.com")
+        XCTAssertEqual(basePath, "")
     }
 
-    func testInvalidURLThrows() {
-        let profile = ProviderProfile(
-            id: "x", name: "n", kind: .openAICompatible,
-            baseURL: "", chatEndpoint: "", model: "m"
-        )
-        XCTAssertThrowsError(try ProviderRequestFactory.urlRequest(
-            profile: profile, apiKey: "K",
-            request: LLMRequest(model: "m", systemPrompt: "s", userPrompt: "u")
-        )) { XCTAssertEqual($0 as? LLMProviderError, .invalidURL) }
+    func testExtraHeadersParsing() {
+        XCTAssertEqual(ProviderURLSplitter.extraHeaders(#"{"X-Test":"yes"}"#), ["X-Test": "yes"])
+        XCTAssertEqual(ProviderURLSplitter.extraHeaders("not json"), [:])
     }
 }

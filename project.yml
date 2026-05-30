@@ -13,6 +13,14 @@ packages:
   SwiftCrypto:
     url: https://github.com/apple/swift-crypto.git
     from: 3.0.0
+  # LLM streaming (SSE) follows the runse project: it streams via these SDKs
+  # rather than hand-parsing Server-Sent Events.
+  OpenAI:
+    url: https://github.com/MacPaw/OpenAI
+    from: "0.4.9"
+  SwiftAnthropic:
+    url: https://github.com/jamesrochabrun/SwiftAnthropic
+    from: "2.2.2"
 
 settings:
   base:
@@ -80,6 +88,8 @@ targets:
         product: NIOSSH
       - package: SwiftCrypto
         product: Crypto
+      - package: OpenAI
+      - package: SwiftAnthropic
       - sdk: Metal.framework
       - sdk: MetalKit.framework
       - sdk: QuartzCore.framework
@@ -96,6 +106,9 @@ targets:
     sources:
       - path: Tests
       - path: Sources/LLM
+    dependencies:
+      - package: OpenAI
+      - package: SwiftAnthropic
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gtermTests

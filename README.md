@@ -61,9 +61,4 @@ brew install xcodegen
 `gterm.xcodeproj`, `Info.plist`, and `GhosttyKit.xcframework` are generated and
 git-ignored.
 
-## Notes for this machine
 
-The engine build needs the patched `zig@0.15` (the generic `zig` 0.15.2 hits a
-Zig-0.15 + Xcode-26.4 linker bug) and an unset HTTP proxy (the harness proxy
-breaks zig's package fetch). The build script handles the proxy; it defaults to
-`/opt/homebrew/opt/zig@0.15/bin/zig` (override with `ZIG=...`).

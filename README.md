@@ -30,14 +30,15 @@ brew install xcodegen
 
 0. Get the terminal engine. gterm uses a fork of ghostty that adds a
    `passthru` IO backend (so the terminal can be driven by SSH instead of a
-   local shell). Clone it next to this repo:
+   local shell). It's bundled as a git submodule — check it out with:
 
    ```sh
-   git clone https://github.com/madeye/ghostty.git ../ghostty
+   git submodule update --init ghostty
    ```
 
-   (Or clone it elsewhere and pass `GHOSTTY_DIR=/path/to/ghostty` to the build
-   script below.)
+   (If you cloned without `--recurse-submodules`, the command above fetches it.
+   To use a separate checkout instead, pass `GHOSTTY_DIR=/path/to/ghostty` to
+   the build script below.)
 
 1. Build the terminal engine (cross-compiles `GhosttyKit.xcframework` with
    macOS + iOS + iOS-simulator slices, and applies the required iOS patch to

@@ -1,0 +1,20 @@
+# Authenticate with the App Store Connect API key (key_id / issuer_id / key PEM).
+# The JSON is kept outside the repo; never commit the .p8 or this JSON.
+api_key_path("/Users/mlv/.appstoreconnect/api_key.json")
+
+app_identifier("io.github.madeye.gterm")
+
+# Read text from fastlane/metadata and images from fastlane/screenshots.
+metadata_path("./fastlane/metadata")
+screenshots_path("./fastlane/screenshots")
+
+# Safety: review/verify before anything goes live.
+submit_for_review(false)
+automatic_release(false)
+force(false) # show the HTML preview and ask for confirmation
+
+# We are not shipping a binary from `deliver`; upload metadata + screenshots only.
+skip_binary_upload(true)
+
+# This app collects no analytics; keep the existing answer in App Store Connect.
+# precheck_include_in_app_purchases(false)

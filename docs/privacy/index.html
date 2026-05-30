@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>gterm — Privacy Policy</title>
+<meta name="description" content="Privacy policy for gterm, the iOS terminal over SSH. gterm collects no personal data; SSH credentials and keys stay in the on-device Keychain." />
+<meta name="theme-color" content="#0a0b0f" />
+<link rel="icon" href="../assets/icon.png" />
+<link rel="apple-touch-icon" href="../assets/icon.png" />
+<link rel="canonical" href="https://madeye.github.io/gterm/privacy/" />
+<meta name="robots" content="index,follow" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0a0b0f; --bg-2:#0d0e13; --surface:#14151c;
+    --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.12);
+    --text:#e9eaf2; --muted:#9a9cb2; --faint:#6b6d82;
+    --cyan:#2ecbe3; --cyan-bright:#38e1fb; --violet:#977ce9; --violet-bright:#ac95fe;
+    --grad:linear-gradient(105deg,var(--cyan) 0%,var(--violet) 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(120px);opacity:.45;pointer-events:none}
+  body::before{width:680px;height:680px;top:-300px;left:-220px;background:radial-gradient(circle,rgba(46,203,227,.4),transparent 70%)}
+  body::after{width:720px;height:720px;bottom:-360px;right:-260px;background:radial-gradient(circle,rgba(151,124,233,.36),transparent 70%)}
+  a{color:var(--cyan-bright);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:780px;margin:0 auto;padding:0 28px}
+  .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(11,12,16,.6);border-bottom:1px solid var(--border)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:66px;max-width:1120px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:18px;letter-spacing:-.01em;color:var(--text)}
+  .brand:hover{text-decoration:none}
+  .brand img{width:34px;height:34px;border-radius:9px}
+  .back{font-size:14px;color:var(--muted);font-weight:500}
+  .back:hover{color:var(--text);text-decoration:none}
+
+  header.page{padding:72px 0 8px}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--border-2);border-radius:999px;background:rgba(255,255,255,.03);font-size:13px;color:var(--muted);font-weight:500}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan-bright)}
+  header.page h1{font-size:46px;line-height:1.08;font-weight:800;letter-spacing:-.03em;margin:20px 0 10px}
+  header.page .eff{color:var(--faint);font-size:14px}
+
+  main{padding:30px 0 40px}
+  .lead{font-size:18px;color:var(--muted);margin-bottom:18px}
+  .lead b{color:var(--text);font-weight:600}
+  h2{font-size:23px;font-weight:700;letter-spacing:-.02em;margin:38px 0 12px}
+  p{color:var(--muted);margin-bottom:14px}
+  p b,li b{color:var(--text);font-weight:600}
+  ul{color:var(--muted);margin:0 0 14px;padding-left:22px}
+  li{margin-bottom:9px}
+  code{font:600 13.5px 'JetBrains Mono',monospace;color:var(--cyan-bright)}
+  .note{border:1px solid var(--border-2);border-radius:14px;background:linear-gradient(180deg,var(--surface),var(--bg-2));padding:20px 22px;margin:22px 0}
+  .note p:last-child{margin-bottom:0}
+
+  footer{border-top:1px solid var(--border);padding:40px 0 56px;margin-top:40px}
+  footer .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;max-width:1120px}
+  footer .brand img{width:30px;height:30px}
+  .foot-links{display:flex;gap:24px;font-size:14px}
+  .foot-links a{color:var(--muted)}
+  .foot-links a:hover{color:var(--text);text-decoration:none}
+  .copy{font-size:13px;color:var(--faint)}
+
+  @media (max-width:920px){
+    header.page h1{font-size:36px}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../assets/icon.png" alt="gterm icon" /> gterm</a>
+    <a class="back" href="../">← Back to home</a>
+  </div>
+</nav>
+
+<header class="page">
+  <div class="wrap">
+    <span class="pill"><span class="dot"></span> Privacy</span>
+    <h1>Privacy <span class="grad-text">Policy</span></h1>
+    <p class="eff">Effective May 30, 2026</p>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <p class="lead"><b>gterm collects no personal data.</b> There are no accounts, no analytics, no tracking, and no advertising. Your SSH credentials, private keys, and connections never pass through any server we operate.</p>
+
+    <h2>What stays on your device</h2>
+    <p>gterm stores everything you give it locally on your iPhone or iPad:</p>
+    <ul>
+      <li><b>SSH connection details</b> (host, port, username) are saved in the app's local storage on the device.</li>
+      <li><b>Saved passwords and imported private keys</b> (Ed25519 / ECDSA) are stored in the iOS <b>Keychain</b>. They are device-only and are not synced by the app to iCloud or anywhere else.</li>
+      <li><b>AI provider API keys</b> you enter are stored masked in the Keychain and used only to call the provider you configured.</li>
+    </ul>
+    <p>This data is never transmitted to the developer. Uninstalling the app removes it.</p>
+
+    <h2>SSH connections</h2>
+    <p>When you connect to a server, gterm opens an SSH session <b>directly from your device to that server</b>. The developer operates no relay or proxy and has no access to your sessions, commands, or output. How a server you connect to handles your data is governed by that server's own operator.</p>
+
+    <h2>AI features (optional)</h2>
+    <p>The AI command assistant and auto-completion are <b>off until you configure a provider</b> with your own API key. When you use them, gterm sends context — your typed request, recent commands, and visible terminal content needed to answer — <b>directly to the AI provider you chose</b>, authenticated with your own key.</p>
+    <div class="note">
+      <p>That request is governed by your chosen provider's privacy policy, not by gterm. Be mindful that enabling AI features can send terminal content (which may include sensitive output) to that provider. If you don't configure a provider, no such data leaves your device.</p>
+    </div>
+
+    <h2>Data we collect</h2>
+    <p>None. gterm contains no analytics SDKs, no crash-reporting services, no advertising identifiers, and no third-party trackers. We do not collect, store, sell, or share your personal information, because we never receive it in the first place.</p>
+
+    <h2>Children's privacy</h2>
+    <p>gterm is a developer tool and is not directed to children. It does not knowingly collect any information from anyone, including children under 13.</p>
+
+    <h2>Changes to this policy</h2>
+    <p>If this policy changes, the updated version will be posted on this page with a new effective date.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about privacy in gterm? Email <a href="mailto:max.c.lv@gmail.com">max.c.lv@gmail.com</a> or open an issue on <a href="https://github.com/madeye/gterm">GitHub</a>.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../assets/icon.png" alt="" /> gterm</a>
+    <div class="foot-links">
+      <a href="../">Home</a>
+      <a href="https://github.com/madeye/gterm">GitHub</a>
+      <a href="mailto:max.c.lv@gmail.com">Contact</a>
+    </div>
+    <div class="copy">Built on a fork of Ghostty · © madeye</div>
+  </div>
+</footer>
+
+</body>
+</html>

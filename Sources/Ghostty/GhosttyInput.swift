@@ -156,6 +156,42 @@ extension Ghostty {
             }
         }
 
+        /// The character this key produces with no modifiers (US layout), for
+        /// keys that map to a single printable character; nil for named/special
+        /// keys (escape, tab, arrows, function keys, …).
+        ///
+        /// ghostty's KeyEncoder derives control/alt sequences (e.g. the tmux
+        /// prefix Ctrl-B -> 0x02) from the event's text / unshifted codepoint —
+        /// just like the macOS apprt. Supplying this for printable keys is what
+        /// makes Ctrl-/Alt-<letter> combos encode correctly.
+        var unshiftedScalar: Unicode.Scalar? {
+            switch self {
+            case .a: return "a"; case .b: return "b"; case .c: return "c"
+            case .d: return "d"; case .e: return "e"; case .f: return "f"
+            case .g: return "g"; case .h: return "h"; case .i: return "i"
+            case .j: return "j"; case .k: return "k"; case .l: return "l"
+            case .m: return "m"; case .n: return "n"; case .o: return "o"
+            case .p: return "p"; case .q: return "q"; case .r: return "r"
+            case .s: return "s"; case .t: return "t"; case .u: return "u"
+            case .v: return "v"; case .w: return "w"; case .x: return "x"
+            case .y: return "y"; case .z: return "z"
+            case .d0: return "0"; case .d1: return "1"; case .d2: return "2"
+            case .d3: return "3"; case .d4: return "4"; case .d5: return "5"
+            case .d6: return "6"; case .d7: return "7"; case .d8: return "8"
+            case .d9: return "9"
+            case .minus: return "-"; case .equal: return "="
+            case .bracketLeft: return "["; case .bracketRight: return "]"
+            case .backslash: return "\\"; case .semicolon: return ";"
+            case .quote: return "'"; case .backquote: return "`"
+            case .comma: return ","; case .period: return "."
+            case .slash: return "/"; case .space: return " "
+            case .escape, .tab, .enter, .backspace, .delete,
+                 .up, .down, .left, .right, .home, .end, .pageUp, .pageDown, .insert,
+                 .f1, .f2, .f3, .f4, .f5, .f6, .f7, .f8, .f9, .f10, .f11, .f12:
+                return nil
+            }
+        }
+
         var cKey: ghostty_input_key_e {
             switch self {
             case .a: return GHOSTTY_KEY_A; case .b: return GHOSTTY_KEY_B
@@ -216,10 +252,18 @@ extension Ghostty {
             ev.keycode = UInt32(key.macKeyCode)
             ev.mods = mods.cMods
             ev.consumed_mods = Ghostty.Mods.none.cMods
-            ev.unshifted_codepoint = text?.unicodeScalars.first.map { $0.value } ?? 0
             ev.composing = false
-            if let text {
-                return text.withCString { ptr in
+
+            // Supply the key's unmodified character as both `text` and
+            // `unshifted_codepoint` (matching the macOS apprt) so ghostty's
+            // KeyEncoder can encode Ctrl-/Alt-<key> combos such as the tmux
+            // prefix Ctrl-B. Named keys (arrows, enter, …) have no scalar, so
+            // they keep text == nil and encode as key events.
+            let scalar = text?.unicodeScalars.first ?? key.unshiftedScalar
+            ev.unshifted_codepoint = scalar?.value ?? 0
+            let effectiveText = text ?? key.unshiftedScalar.map { String($0) }
+            if let effectiveText {
+                return effectiveText.withCString { ptr in
                     ev.text = ptr
                     return body(ev)
                 }

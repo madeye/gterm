@@ -37,3 +37,5 @@ fastlane/Preview.html
 fastlane/test_output/
 fastlane/screenshots/screenshots.html
 *.itmsp
+# Personal App Review contact phone — keep out of the public repo
+fastlane/metadata/review_information/phone_number.txt

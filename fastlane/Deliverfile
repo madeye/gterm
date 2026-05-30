@@ -16,5 +16,6 @@ force(false) # show the HTML preview and ask for confirmation
 # We are not shipping a binary from `deliver`; upload metadata + screenshots only.
 skip_binary_upload(true)
 
-# This app collects no analytics; keep the existing answer in App Store Connect.
-# precheck_include_in_app_purchases(false)
+# gterm has no in-app purchases; the API-key precheck can't inspect IAPs and
+# would otherwise exit non-zero on an otherwise successful run.
+precheck_include_in_app_purchases(false)

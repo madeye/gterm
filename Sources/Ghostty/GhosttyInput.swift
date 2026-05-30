@@ -121,6 +121,41 @@ extension Ghostty {
             }
         }
 
+        /// Map a printable character to its physical key *plus* whether Shift is
+        /// needed to produce it on a US layout. This lets modifier combos with
+        /// shifted symbols (Ctrl-_, Alt-|, Ctrl-^) be encoded as real key
+        /// events, where `init?(character:)` alone would drop the Shift.
+        static func physical(for character: Character) -> (key: Key, shift: Bool)? {
+            if let base = Key(character: character) { return (base, false) }
+            switch character {
+            case "|": return (.backslash, true);    case "~": return (.backquote, true)
+            case ":": return (.semicolon, true);    case "_": return (.minus, true)
+            case "!": return (.d1, true);           case "@": return (.d2, true)
+            case "#": return (.d3, true);           case "$": return (.d4, true)
+            case "%": return (.d5, true);           case "^": return (.d6, true)
+            case "&": return (.d7, true);           case "*": return (.d8, true)
+            case "(": return (.d9, true);           case ")": return (.d0, true)
+            case "{": return (.bracketLeft, true);  case "}": return (.bracketRight, true)
+            case "+": return (.equal, true);        case "\"": return (.quote, true)
+            case "<": return (.comma, true);        case ">": return (.period, true)
+            case "?": return (.slash, true)
+            default: return nil
+            }
+        }
+
+        /// True for keys that must be sent as key events (not text) because the
+        /// terminal encodes them mode-dependently (arrows, function keys, etc.).
+        var isSpecial: Bool {
+            switch self {
+            case .escape, .tab, .enter, .backspace, .delete,
+                 .up, .down, .left, .right, .home, .end, .pageUp, .pageDown, .insert,
+                 .f1, .f2, .f3, .f4, .f5, .f6, .f7, .f8, .f9, .f10, .f11, .f12:
+                return true
+            default:
+                return false
+            }
+        }
+
         var cKey: ghostty_input_key_e {
             switch self {
             case .a: return GHOSTTY_KEY_A; case .b: return GHOSTTY_KEY_B

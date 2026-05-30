@@ -33,6 +33,7 @@ final class SSHSession: TerminalSession {
     private let connection: SSHConnection
     private weak var view: TerminalSurfaceView?
     private let onStateChange: (SSHSessionState) -> Void
+    private let onHostKeyPrompt: TOFUHostKeyDelegate.Prompt?
 
     private let group: EventLoopGroup
     private var channel: Channel?
@@ -42,10 +43,12 @@ final class SSHSession: TerminalSession {
     init(
         connection: SSHConnection,
         view: TerminalSurfaceView,
+        onHostKeyPrompt: TOFUHostKeyDelegate.Prompt? = nil,
         onStateChange: @escaping (SSHSessionState) -> Void
     ) {
         self.connection = connection
         self.view = view
+        self.onHostKeyPrompt = onHostKeyPrompt
         self.onStateChange = onStateChange
         self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     }
@@ -77,7 +80,8 @@ final class SSHSession: TerminalSession {
 
         let authDelegate = OrderedAuthDelegate(username: connection.username, offers: offers)
         let hostKeyDelegate = TOFUHostKeyDelegate(
-            hostID: "\(connection.host):\(connection.port)"
+            hostID: "\(connection.host):\(connection.port)",
+            prompt: onHostKeyPrompt
         )
 
         let bootstrap = ClientBootstrap(group: group)

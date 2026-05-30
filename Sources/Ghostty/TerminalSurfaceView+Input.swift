@@ -12,8 +12,8 @@ extension TerminalSurfaceView: UIKeyInput {
         // event so combos like Ctrl-C produce the right control bytes.
         if !stickyMods.isEmpty {
             for ch in text {
-                if let key = Ghostty.Key(character: ch) {
-                    sendKey(key, mods: stickyMods)
+                if let (key, shift) = Ghostty.Key.physical(for: ch) {
+                    sendKey(key, mods: shift ? stickyMods.union(.shift) : stickyMods)
                 } else {
                     sendText(String(ch))
                 }

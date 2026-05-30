@@ -177,14 +177,20 @@ final class TerminalSurfaceView: UIView {
     }
 
     /// Insert a printable symbol from the accessory bar, applying armed
-    /// modifiers if any (e.g. Ctrl-/).
+    /// modifiers if any (e.g. Ctrl-/, Alt-|).
     func insertSymbol(_ s: String) {
-        if !stickyMods.isEmpty, let ch = s.first, let key = Ghostty.Key(character: ch) {
-            sendKey(key, mods: stickyMods)
-            clearStickyMods()
+        guard !stickyMods.isEmpty else {
+            sendText(s)
+            return
+        }
+        if let ch = s.first, let (key, shift) = Ghostty.Key.physical(for: ch) {
+            sendKey(key, mods: shift ? stickyMods.union(.shift) : stickyMods)
         } else {
+            // Can't encode as a key event; send as text but still consume the
+            // armed modifiers so the accessory bar doesn't show a stuck state.
             sendText(s)
         }
+        clearStickyMods()
     }
 
     /// Current terminal grid size (columns, rows). Falls back to 80x24 before
@@ -220,9 +226,14 @@ final class TerminalSurfaceView: UIView {
 
     /// Send a key press through ghostty's encoder (mode-aware). Use for special
     /// keys (arrows, esc, tab, enter, ...) and control combos (Ctrl-C).
-    func sendKey(_ key: Ghostty.Key, mods: Ghostty.Mods = .none, text: String? = nil) {
+    func sendKey(
+        _ key: Ghostty.Key,
+        mods: Ghostty.Mods = .none,
+        action: Ghostty.KeyAction = .press,
+        text: String? = nil
+    ) {
         guard let surface else { return }
-        let ev = Ghostty.KeyEvent(key: key, action: .press, mods: mods, text: text)
+        let ev = Ghostty.KeyEvent(key: key, action: action, mods: mods, text: text)
         ev.withCValue { c in
             _ = ghostty_surface_key(surface, c)
         }

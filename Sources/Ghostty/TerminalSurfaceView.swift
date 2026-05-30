@@ -195,7 +195,7 @@ final class TerminalSurfaceView: UIView {
     /// modifiers if any (e.g. Ctrl-/, Alt-|).
     func insertSymbol(_ s: String) {
         guard !stickyMods.isEmpty else {
-            sendText(s)
+            sendCharacter(s) // typed input: avoid bracketed-paste wrapping
             return
         }
         if let ch = s.first, let (key, shift) = Ghostty.Key.physical(for: ch) {
@@ -310,13 +310,45 @@ final class TerminalSurfaceView: UIView {
 
     // MARK: Outgoing input (terminal <- user)
 
-    /// Send printable text (bypasses key encoding). Use for IME / pasted text.
+    /// Send pasted text. This is `ghostty_surface_text`, which applies bracketed
+    /// paste (ESC[200~ … ESC[201~) when the program enables DECSET 2004 —
+    /// correct for a paste, WRONG for typing. Use `sendCharacter` for typed input.
     func sendText(_ text: String) {
         guard let surface, !text.isEmpty else { return }
         noteInputText(text)
         let len = text.utf8.count
         text.withCString { ptr in
             ghostty_surface_text(surface, ptr, UInt(len))
+        }
+    }
+
+    /// Send typed (soft keyboard) characters as key events. Unlike `sendText`,
+    /// this is NOT wrapped in bracketed paste, so a keystroke after the tmux
+    /// prefix (Ctrl-B :) reaches the program as a bare byte rather than a paste.
+    /// Each printable character is sent through ghostty's key encoder carrying
+    /// the literal text with its physical keycode; anything without a known key
+    /// (CJK/emoji IME commits) falls back to the text path.
+    func sendCharacter(_ text: String) {
+        guard let surface, !text.isEmpty else { return }
+        noteInputText(text)
+        for ch in text {
+            let s = String(ch)
+            guard let key = Ghostty.Key.physical(for: ch)?.key else {
+                let len = s.utf8.count
+                s.withCString { ptr in ghostty_surface_text(surface, ptr, UInt(len)) }
+                continue
+            }
+            var ev = ghostty_input_key_s()
+            ev.action = Ghostty.KeyAction.press.cAction
+            ev.keycode = UInt32(key.macKeyCode)
+            ev.mods = Ghostty.Mods.none.cMods
+            ev.consumed_mods = Ghostty.Mods.none.cMods
+            ev.unshifted_codepoint = s.unicodeScalars.first?.value ?? 0
+            ev.composing = false
+            s.withCString { ptr in
+                ev.text = ptr
+                _ = ghostty_surface_key(surface, ev)
+            }
         }
     }
 

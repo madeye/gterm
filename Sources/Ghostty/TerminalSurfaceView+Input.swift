@@ -28,7 +28,10 @@ extension TerminalSurfaceView: UIKeyInput {
         case "\t":
             sendKey(.tab)
         default:
-            sendText(text)
+            // Typed input goes through the key path (not ghostty_surface_text)
+            // so it isn't wrapped in bracketed paste — otherwise a keystroke
+            // after the tmux prefix (Ctrl-B :) would arrive as a paste, not ":".
+            sendCharacter(text)
         }
     }
 

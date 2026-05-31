@@ -1,0 +1,3 @@
+[submodule "ghostty"]
+	path = ghostty
+	url = https://github.com/madeye/ghostty.git

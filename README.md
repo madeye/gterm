@@ -64,4 +64,13 @@ brew install xcodegen
 `gterm.xcodeproj`, `Info.plist`, and `GhosttyKit.xcframework` are generated and
 git-ignored.
 
+## License
+
+gterm is released under the [MIT License](LICENSE) © 2026 Max Lv.
+
+Bundled / dependency components keep their own licenses: the
+[ghostty](https://github.com/madeye/ghostty) engine is MIT; swift-nio-ssh,
+swift-crypto, and swift-nio are Apache-2.0; the OpenAI and SwiftAnthropic SDKs
+are MIT.
+
 

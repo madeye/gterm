@@ -24,8 +24,10 @@ packages:
 
 settings:
   base:
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.1"
+    # Build number is the build date (YYYYMMDD); pass CURRENT_PROJECT_VERSION
+    # explicitly per build (e.g. `CURRENT_PROJECT_VERSION=$(date +%Y%m%d)`).
+    CURRENT_PROJECT_VERSION: "20260531"
     DEVELOPMENT_TEAM: SK4GFF6AHN
     # Low-level C interop (Unmanaged, C function-pointer callbacks) is much
     # simpler under the Swift 5 language mode than Swift 6 strict concurrency.

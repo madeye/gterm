@@ -3,6 +3,8 @@
 An iOS terminal app that renders with [ghostty](../ghostty)'s `libghostty`
 engine (GPU/Metal, full xterm/VT emulation) and connects over **SSH**.
 
+> 📲 **Try the beta:** [Join on TestFlight](https://testflight.apple.com/join/qDNYS7fd) (iOS 17+, requires Apple's TestFlight app).
+
 iOS can't `fork`/`exec` a local shell, so gterm drives the terminal from an SSH
 connection via a custom **passthru IO backend** added to libghostty. See
 [PLAN.md](PLAN.md) for the full architecture.

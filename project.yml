@@ -78,7 +78,6 @@ targets:
         # team provides this; the entitlements file declares the keychain group.
         CODE_SIGN_ENTITLEMENTS: gterm.entitlements
         CODE_SIGN_STYLE: Automatic
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # GhosttyKit is a static Zig library; -ObjC pulls in its ObjC categories
         # and -lstdc++ satisfies the C++ (simdutf/highway) bits it links.
         OTHER_LDFLAGS: [-ObjC, -lstdc++]

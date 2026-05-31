@@ -42,6 +42,10 @@ final class TerminalSurfaceView: UIView {
         isOpaque = true
         contentMode = .redraw
 
+        // Pinch (two-finger) to change the font size, which reflows the grid.
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        addGestureRecognizer(pinch)
+
         guard let app = ghostty.app else {
             Ghostty.logger.error("TerminalSurfaceView created without a ghostty app")
             return
@@ -142,6 +146,32 @@ final class TerminalSurfaceView: UIView {
         let ok = super.resignFirstResponder()
         if let surface { ghostty_surface_set_focus(surface, false) }
         return ok
+    }
+
+    // MARK: Font size (pinch-to-zoom)
+
+    /// Perform a libghostty keybind action by name (e.g. "increase_font_size:1").
+    @discardableResult
+    private func performBindingAction(_ action: String) -> Bool {
+        guard let surface else { return false }
+        let len = action.utf8.count
+        return action.withCString { ghostty_surface_binding_action(surface, $0, UInt(len)) }
+    }
+
+    /// Two-finger pinch adjusts the font size one point at a time. Each ~12%
+    /// of pinch crosses a step; we reset the recognizer's scale after stepping
+    /// so a continuous pinch keeps zooming. Changing the font size reflows the
+    /// grid, which fires the resize callback (-> SSH window-change).
+    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+        guard gesture.state == .changed else { return }
+        let step: CGFloat = 1.12
+        if gesture.scale >= step {
+            performBindingAction("increase_font_size:1")
+            gesture.scale = 1
+        } else if gesture.scale <= 1 / step {
+            performBindingAction("decrease_font_size:1")
+            gesture.scale = 1
+        }
     }
 
     // MARK: Accessory keyboard + sticky modifiers

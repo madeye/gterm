@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The "AI" tab: enable LLM autocompletion, choose the active provider, and
 /// manage providers (each with its own API key, stored in the Keychain).
@@ -97,6 +98,10 @@ private struct ProviderEditView: View {
 
     @State private var profile: ProviderProfile
     @State private var apiKey: String = ""
+    // Default to a plain TextField (revealed): a SecureField triggers iOS
+    // password autofill, which hijacks the field and hides Paste. The eye
+    // toggle re-masks it once the key is entered.
+    @State private var revealKey = true
     @State private var testing = false
     @State private var testResult: String?
     @State private var testOK = false
@@ -124,10 +129,43 @@ private struct ProviderEditView: View {
                     LabeledField("Endpoint", text: $profile.chatEndpoint)
                     LabeledField("Model", text: $profile.model)
                 }
-                Section("API Key") {
-                    SecureField("API key", text: $apiKey)
+                Section {
+                    // Editable field (type or edit directly). textContentType(.none)
+                    // opts out of iOS password autofill as much as possible.
+                    HStack {
+                        Group {
+                            if revealKey {
+                                TextField("API key", text: $apiKey)
+                            } else {
+                                SecureField("API key", text: $apiKey)
+                            }
+                        }
+                        .font(.system(.callout, design: .monospaced))
+                        .textContentType(.none)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
+                        .submitLabel(.done)
+
+                        Button { revealKey.toggle() } label: {
+                            Image(systemName: revealKey ? "eye.slash" : "eye")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    // Reliable alternative that bypasses iOS autofill entirely.
+                    Button {
+                        if let clip = UIPasteboard.general.string {
+                            apiKey = clip.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                    } label: {
+                        Label("Paste from Clipboard", systemImage: "doc.on.clipboard")
+                    }
+                    .disabled(!UIPasteboard.general.hasStrings)
+                } header: {
+                    Text("API Key")
+                } footer: {
+                    Text("Type or edit the key directly, or use Paste from Clipboard to avoid iOS password autofill.")
                 }
                 Section {
                     Button {

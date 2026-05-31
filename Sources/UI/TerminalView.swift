@@ -6,6 +6,9 @@ import SwiftUI
 struct TerminalView: UIViewRepresentable {
     let ghostty: Ghostty.App
     let makeSession: (TerminalSurfaceView) -> TerminalSession
+    /// Called once with the created surface view so the hosting screen can drive
+    /// it (e.g. the AI command assistant typing a command into the terminal).
+    var onCreate: ((TerminalSurfaceView) -> Void)? = nil
 
     func makeUIView(context: Context) -> TerminalSurfaceView {
         let view = TerminalSurfaceView(ghostty: ghostty)
@@ -13,6 +16,7 @@ struct TerminalView: UIViewRepresentable {
         view.delegate = session
         context.coordinator.session = session
         session.start()
+        onCreate?(view)
         return view
     }
 

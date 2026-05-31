@@ -76,7 +76,26 @@ final class TerminalSurfaceView: UIView {
             return
         }
         self.surface = surface
+        setupSelectionGestures()
+        setupScrollGesture()
     }
+
+    // MARK: Selection / clipboard gesture state (see TerminalSurfaceView+Selection)
+
+    /// Where the active long-press began, and whether it has moved far enough to
+    /// count as a selection drag (vs. a stationary hold-to-paste).
+    var selectionStart: CGPoint?
+    var selectionMoved = false
+
+    // MARK: Scroll gesture state (see TerminalSurfaceView+Scroll)
+
+    /// Cumulative pan translation already converted to scroll, so each `.changed`
+    /// only forwards the incremental delta.
+    var lastScrollTranslationY: CGFloat = 0
+
+    /// The scroll pan recognizer, disabled while a selection long-press is active
+    /// so the two gestures never run together.
+    weak var scrollPan: UIPanGestureRecognizer?
 
     required init?(coder: NSCoder) { fatalError("not supported") }
 
@@ -217,7 +236,7 @@ final class TerminalSurfaceView: UIView {
     /// modifiers if any (e.g. Ctrl-/, Alt-|).
     func insertSymbol(_ s: String) {
         guard !stickyMods.isEmpty else {
-            sendText(s)
+            sendCharacter(s) // typed input: avoid bracketed-paste wrapping
             return
         }
         if let ch = s.first, let (key, shift) = Ghostty.Key.physical(for: ch) {
@@ -332,13 +351,57 @@ final class TerminalSurfaceView: UIView {
 
     // MARK: Outgoing input (terminal <- user)
 
-    /// Send printable text (bypasses key encoding). Use for IME / pasted text.
+    /// Send pasted text. This is `ghostty_surface_text`, which applies bracketed
+    /// paste (ESC[200~ … ESC[201~) when the program enables DECSET 2004 —
+    /// correct for a paste, WRONG for typing. Use `sendCharacter` for typed input.
     func sendText(_ text: String) {
         guard let surface, !text.isEmpty else { return }
         noteInputText(text)
         let len = text.utf8.count
         text.withCString { ptr in
             ghostty_surface_text(surface, ptr, UInt(len))
+        }
+    }
+
+    /// Send typed (soft keyboard) characters as key events. Unlike `sendText`,
+    /// this is NOT wrapped in bracketed paste, so a keystroke after the tmux
+    /// prefix (Ctrl-B :) reaches the program as a bare byte rather than a paste.
+    /// Each printable character is sent through ghostty's key encoder carrying
+    /// the literal text with its physical keycode; anything without a known key
+    /// (CJK/emoji IME commits) falls back to the text path.
+    func sendCharacter(_ text: String) {
+        guard let surface, !text.isEmpty else { return }
+        noteInputText(text)
+        for ch in text {
+            let s = String(ch)
+            guard let key = Ghostty.Key.physical(for: ch)?.key else {
+                let len = s.utf8.count
+                s.withCString { ptr in ghostty_surface_text(surface, ptr, UInt(len)) }
+                continue
+            }
+            var ev = ghostty_input_key_s()
+            ev.action = Ghostty.KeyAction.press.cAction
+            ev.keycode = UInt32(key.macKeyCode)
+            ev.mods = Ghostty.Mods.none.cMods
+            ev.consumed_mods = Ghostty.Mods.none.cMods
+            ev.unshifted_codepoint = s.unicodeScalars.first?.value ?? 0
+            ev.composing = false
+            s.withCString { ptr in
+                ev.text = ptr
+                _ = ghostty_surface_key(surface, ev)
+            }
+        }
+    }
+
+    /// Type a command into the terminal and run it. Multi-line input is sent
+    /// line by line, each followed by Enter. Used by the AI command assistant;
+    /// goes through the typed-key path so it is never bracketed-paste wrapped.
+    func runCommand(_ command: String) {
+        let lines = command.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { sendCharacter(trimmed) }
+            sendKey(.enter)
         }
     }
 

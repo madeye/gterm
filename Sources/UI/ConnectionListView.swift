@@ -6,6 +6,7 @@ import SwiftUI
 struct ConnectionListView: View {
     @ObservedObject var store: ConnectionStore
     @ObservedObject var keyStore: KeyStore
+    @ObservedObject var forwardStore: PortForwardStore
     let onConnect: (SSHConnection) -> Void
 
     @State private var editing: SavedConnection?
@@ -30,7 +31,10 @@ struct ConnectionListView: View {
                         }
                     }
                     .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) { store.delete(conn) } label: {
+                        Button(role: .destructive) {
+                            store.delete(conn)
+                            forwardStore.deleteForwards(for: conn.id)
+                        } label: {
                             Label("Delete", systemImage: "trash")
                         }
                         Button { editing = conn } label: {
@@ -48,7 +52,7 @@ struct ConnectionListView: View {
                 }
             }
             .sheet(item: $editing) { conn in
-                AddConnectionView(store: store, keyStore: keyStore, connection: conn)
+                AddConnectionView(store: store, keyStore: keyStore, forwardStore: forwardStore, connection: conn)
             }
             .alert(
                 "Password",
@@ -77,7 +81,7 @@ struct ConnectionListView: View {
     private func makeConnection(_ conn: SavedConnection, password: String) -> SSHConnection {
         SSHConnection(
             host: conn.host, port: conn.port, username: conn.username,
-            password: password, privateKeys: keyTexts(for: conn))
+            password: password, privateKeys: keyTexts(for: conn), savedID: conn.id)
     }
 
     private func connect(_ conn: SavedConnection) {

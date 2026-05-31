@@ -7,17 +7,38 @@ struct HostKeyPromptRequest {
     let decide: (Bool) -> Void
 }
 
+/// A URL tapped in the terminal. Wraps `URL` so it can drive a `fullScreenCover(item:)`.
+struct TappedURL: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 /// Full-screen terminal for an active SSH connection, with a slim status bar
 /// and a close button.
 struct TerminalScreen: View {
     @EnvironmentObject private var ghostty: Ghostty.App
     let connection: SSHConnection
+    /// The owning `SavedConnection.id`, used to resolve persisted port forwards.
+    let savedConnectionID: UUID?
+    @ObservedObject var forwardStore: PortForwardStore
     let onClose: () -> Void
 
     @State private var state: SSHSessionState = .idle
     @State private var hostKeyRequest: HostKeyPromptRequest?
     @State private var terminalView: TerminalSurfaceView?
     @State private var showingAICommands = false
+    @State private var showingForwards = false
+    @State private var forwardStates: [UUID: PortForwardStatus] = [:]
+    @State private var session: SSHSession?
+    @State private var browsing: PortForward?
+    /// A URL tapped in the terminal, opened in the in-app browser.
+    @State private var linkURL: TappedURL?
+
+    /// Persisted forward configs for this connection (empty if not a saved host).
+    private var connectionForwards: [PortForward] {
+        guard let id = savedConnectionID else { return [] }
+        return forwardStore.forwards(for: id)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,14 +47,19 @@ struct TerminalScreen: View {
                 SSHSession(
                     connection: connection,
                     view: view,
+                    forwards: connectionForwards,
                     onHostKeyPrompt: { prompt, decide in
                         hostKeyRequest = HostKeyPromptRequest(prompt: prompt, decide: decide)
-                    }
+                    },
+                    onForwardChange: { id, st in forwardStates[id] = st }
                 ) { newState in
                     state = newState
                 }
             }, onCreate: { view in
+                view.onOpenURL = { url in linkURL = TappedURL(url: url) }
                 DispatchQueue.main.async { terminalView = view }
+            }, onSession: { s in
+                DispatchQueue.main.async { session = s }
             })
         }
         .sheet(isPresented: $showingAICommands) {
@@ -43,6 +69,27 @@ struct TerminalScreen: View {
                     (terminalView?.readVisibleText() ?? "", CommandHistory.shared.recent(limit: 15))
                 }
             )
+        }
+        .sheet(isPresented: $showingForwards) {
+            PortForwardStatusSheet(
+                forwards: connectionForwards,
+                statuses: forwardStates,
+                onToggle: { f, on in
+                    if on { session?.startForward(f.id) } else { session?.stopForward(f.id) }
+                },
+                onOpenBrowser: { f in
+                    showingForwards = false
+                    browsing = f
+                }
+            )
+        }
+        .fullScreenCover(item: $browsing) { f in
+            if let url = f.localURL {
+                BrowserScreen(initialURL: url) { browsing = nil }
+            }
+        }
+        .fullScreenCover(item: $linkURL) { tapped in
+            BrowserScreen(initialURL: tapped.url) { linkURL = nil }
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -109,6 +156,11 @@ struct TerminalScreen: View {
                 Image(systemName: "sparkles").font(.body.weight(.semibold))
             }
             .accessibilityLabel("AI commands")
+            Button { showingForwards = true } label: {
+                Image(systemName: "network").font(.body.weight(.semibold))
+            }
+            .accessibilityLabel("Port forwards")
+            .disabled(state != .connected)
             statusIndicator
         }
         .padding(.horizontal, 14)

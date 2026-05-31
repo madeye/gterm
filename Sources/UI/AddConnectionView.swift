@@ -5,15 +5,18 @@ import SwiftUI
 struct AddConnectionView: View {
     @ObservedObject var store: ConnectionStore
     @ObservedObject var keyStore: KeyStore
+    @ObservedObject var forwardStore: PortForwardStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var connection: SavedConnection
     @State private var portText: String
     @State private var password: String
+    @State private var editingForward: PortForward?
 
-    init(store: ConnectionStore, keyStore: KeyStore, connection: SavedConnection) {
+    init(store: ConnectionStore, keyStore: KeyStore, forwardStore: PortForwardStore, connection: SavedConnection) {
         self.store = store
         self.keyStore = keyStore
+        self.forwardStore = forwardStore
         _connection = State(initialValue: connection)
         _portText = State(initialValue: String(connection.port))
         _password = State(initialValue: store.savedPassword(for: connection) ?? "")
@@ -70,6 +73,34 @@ struct AddConnectionView: View {
                     SecureField("password (optional)", text: $password)
                     Toggle("Save password", isOn: $connection.savePassword)
                 }
+
+                Section("Port Forwards") {
+                    ForEach(forwardStore.forwards(for: connection.id)) { f in
+                        Button {
+                            editingForward = f
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(f.title).foregroundStyle(.primary)
+                                    Text(f.subtitle).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if f.autoStart {
+                                    Image(systemName: "bolt.fill").foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    .onDelete { offsets in
+                        let items = forwardStore.forwards(for: connection.id)
+                        for index in offsets { forwardStore.delete(items[index]) }
+                    }
+                    Button {
+                        editingForward = PortForward(connectionID: connection.id)
+                    } label: {
+                        Label("Add Port Forward", systemImage: "plus")
+                    }
+                }
             }
             .navigationTitle(connection.host.isEmpty ? "New Connection" : "Edit Connection")
             .navigationBarTitleDisplayMode(.inline)
@@ -78,6 +109,15 @@ struct AddConnectionView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }.disabled(!isValid)
                 }
+            }
+            .sheet(item: $editingForward) { f in
+                PortForwardEditView(
+                    store: forwardStore,
+                    existingPorts: forwardStore.forwards(for: connection.id)
+                        .filter { $0.id != f.id }
+                        .map { $0.localPort },
+                    forward: f
+                )
             }
         }
     }

@@ -15,6 +15,9 @@ struct RootView: View {
 
             KeyListView(store: keys, connections: connections)
                 .tabItem { Label("Keys", systemImage: "key.fill") }
+
+            AISettingsView()
+                .tabItem { Label("AI", systemImage: "sparkles") }
         }
         .fullScreenCover(item: $activeConnection) { connection in
             TerminalScreen(connection: connection) {

@@ -149,9 +149,16 @@ final class TerminalSurfaceView: UIView {
     /// Modifiers "armed" by the accessory bar, applied to the next keypress.
     private(set) var stickyMods: Ghostty.Mods = .none
 
-    private lazy var accessory = AccessoryKeyboardView(target: self)
+    lazy var accessory = AccessoryKeyboardView(target: self)
 
     override var inputAccessoryView: UIView? { accessory }
+
+    /// LLM autocompletion engine (lazy: only built when first needed).
+    lazy var completionEngine = CompletionEngine()
+
+    /// Internal accessors for the completion extension (in another file).
+    var ghosttySurface: ghostty_surface_t? { surface }
+    var liveCurrentLine: String { currentLine }
 
     @discardableResult func toggleCtrl() -> Bool {
         if stickyMods.contains(.ctrl) { stickyMods.remove(.ctrl) } else { stickyMods.insert(.ctrl) }
@@ -264,7 +271,8 @@ final class TerminalSurfaceView: UIView {
         let suggestions = currentLine.isEmpty
             ? []
             : CommandHistory.shared.suggestions(prefix: currentLine)
-        accessory.updateSuggestions(suggestions)
+        accessory.setHistorySuggestions(suggestions)
+        requestAICompletion(currentLine: currentLine)
     }
 
     private static func isPrintable(_ ch: Character) -> Bool {

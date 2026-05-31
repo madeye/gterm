@@ -54,6 +54,11 @@ final class CommandHistory {
         return out
     }
 
+    /// The most recent entries (most-recent first), for LLM context.
+    func recent(limit: Int = 20) -> [String] {
+        Array(entries.prefix(limit))
+    }
+
     /// Forget all recorded history.
     func clear() {
         entries.removeAll()

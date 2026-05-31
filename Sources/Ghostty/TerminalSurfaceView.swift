@@ -78,6 +78,20 @@ final class TerminalSurfaceView: UIView {
         self.surface = surface
         setupSelectionGestures()
         setupScrollGesture()
+        setupLinkTapGesture()
+    }
+
+    // MARK: Link opening
+
+    /// Called when the user taps a URL in the terminal; the SwiftUI layer routes
+    /// it to the in-app browser. Set by the hosting view.
+    var onOpenURL: ((URL) -> Void)?
+
+    /// Invoked from libghostty's OPEN_URL action (via Ghostty.App) when a clicked
+    /// link is followed. Parses and forwards the URL on the main thread.
+    func didRequestOpenURL(_ string: String) {
+        guard let url = URL(string: string) else { return }
+        onOpenURL?(url)
     }
 
     // MARK: Selection / clipboard gesture state (see TerminalSurfaceView+Selection)

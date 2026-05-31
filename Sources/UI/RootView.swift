@@ -4,11 +4,12 @@ struct RootView: View {
     @EnvironmentObject private var ghostty: Ghostty.App
     @StateObject private var connections = ConnectionStore()
     @StateObject private var keys = KeyStore()
+    @StateObject private var forwards = PortForwardStore()
     @State private var activeConnection: SSHConnection?
 
     var body: some View {
         TabView {
-            ConnectionListView(store: connections, keyStore: keys) { connection in
+            ConnectionListView(store: connections, keyStore: keys, forwardStore: forwards) { connection in
                 activeConnection = connection
             }
             .tabItem { Label("Hosts", systemImage: "server.rack") }
@@ -20,7 +21,11 @@ struct RootView: View {
                 .tabItem { Label("AI", systemImage: "sparkles") }
         }
         .fullScreenCover(item: $activeConnection) { connection in
-            TerminalScreen(connection: connection) {
+            TerminalScreen(
+                connection: connection,
+                savedConnectionID: connection.savedID,
+                forwardStore: forwards
+            ) {
                 activeConnection = nil
             }
             .environmentObject(ghostty)

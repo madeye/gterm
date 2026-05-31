@@ -13,6 +13,10 @@ struct SSHConnection: Identifiable {
     /// PEM/OpenSSH private key texts to try for public-key auth, in order.
     var privateKeys: [String] = []
     var term: String = "xterm-256color"
+    /// The owning `SavedConnection.id`, if this runtime connection came from a
+    /// saved host. Not persisted; rides along so the UI can resolve persisted
+    /// port forwards for this connection.
+    var savedID: UUID? = nil
 }
 
 /// High-level lifecycle of an SSH session, surfaced to the UI.
@@ -40,15 +44,23 @@ final class SSHSession: TerminalSession {
     private var childChannel: Channel?
     private var ptyHandler: PTYChannelHandler?
 
+    private var forwardManager: PortForwardManager?
+    private let forwards: [PortForward]
+    private let onForwardChange: ((UUID, PortForwardStatus) -> Void)?
+
     init(
         connection: SSHConnection,
         view: TerminalSurfaceView,
+        forwards: [PortForward] = [],
         onHostKeyPrompt: TOFUHostKeyDelegate.Prompt? = nil,
+        onForwardChange: ((UUID, PortForwardStatus) -> Void)? = nil,
         onStateChange: @escaping (SSHSessionState) -> Void
     ) {
         self.connection = connection
         self.view = view
+        self.forwards = forwards
         self.onHostKeyPrompt = onHostKeyPrompt
+        self.onForwardChange = onForwardChange
         self.onStateChange = onStateChange
         self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     }
@@ -113,12 +125,22 @@ final class SSHSession: TerminalSession {
 
     func stop() {
         let group = self.group
-        childChannel?.close(promise: nil)
-        channel?.close(promise: nil)
+        // Close port-forward listeners + tunnels FIRST and wait for them to be
+        // fully released, THEN close the channels and shut the group down. Shutting
+        // the group down concurrently can leave a listener lingering bound, so the
+        // next session's bind fails with EADDRINUSE.
+        let cleanup = forwardManager?.stopAll() ?? group.next().makeSucceededVoidFuture()
+        forwardManager = nil
+        let child = childChannel
+        let parent = channel
         childChannel = nil
         channel = nil
         ptyHandler = nil
-        group.shutdownGracefully { _ in }
+        cleanup.whenComplete { _ in
+            child?.close(promise: nil)
+            parent?.close(promise: nil)
+            group.shutdownGracefully { _ in }
+        }
     }
 
     // MARK: Open the PTY shell child channel
@@ -160,11 +182,33 @@ final class SSHSession: TerminalSession {
                         self.notify(.failed(Self.describe(error)))
                     case .success(let childChannel):
                         self.childChannel = childChannel
+                        // The parent `channel` is the authenticated connection;
+                        // the forward manager reuses it and the shared group.
+                        let mgr = PortForwardManager(
+                            parentChannel: channel,
+                            group: self.group,
+                            onChange: { [weak self] id, st in self?.onForwardChange?(id, st) }
+                        )
+                        self.forwardManager = mgr
+                        for f in self.forwards where f.autoStart { mgr.start(f) }
                         self.notify(.connected)
                     }
                 }
             }
         }
+    }
+
+    // MARK: Port forwarding
+
+    /// Start the listener for the forward with `id` (looked up in the stored
+    /// configs). The manager hops to the event loop internally.
+    func startForward(_ id: UUID) {
+        guard let f = forwards.first(where: { $0.id == id }) else { return }
+        forwardManager?.start(f)
+    }
+
+    func stopForward(_ id: UUID) {
+        forwardManager?.stop(id)
     }
 
     private func deliverOutput(_ buf: ByteBuffer) {

@@ -67,6 +67,10 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         # SSH needs to reach hosts on the local network too.
         NSLocalNetworkUsageDescription: gterm connects to SSH servers, which may be on your local network.
+        # Allow cleartext http to loopback/link-local/.local so the in-app browser
+        # can load http://127.0.0.1:<port> served by a tunneled port forward.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gterm

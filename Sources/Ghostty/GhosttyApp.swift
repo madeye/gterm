@@ -131,6 +131,17 @@ extension Ghostty {
                 DispatchQueue.main.async { view.didChangePwd(pwd) }
                 return true
 
+            case GHOSTTY_ACTION_OPEN_URL:
+                guard target.tag == GHOSTTY_TARGET_SURFACE,
+                      let view = surfaceView(target.target.surface),
+                      let cstr = action.action.open_url.url else { return false }
+                let len = Int(action.action.open_url.len)
+                let url = len > 0
+                    ? String(decoding: UnsafeRawBufferPointer(start: cstr, count: len), as: UTF8.self)
+                    : String(cString: cstr)
+                DispatchQueue.main.async { view.didRequestOpenURL(url) }
+                return true
+
             default:
                 // Many actions are macOS/window-manager specific and don't
                 // apply on iOS. Returning false marks them unperformed.

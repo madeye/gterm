@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>gterm on AltStore</title>
+<meta name="description" content="Install gterm via AltStore or SideStore — sideload a Ghostty-powered iOS terminal that connects over SSH." />
+<meta name="theme-color" content="#0a0b0f" />
+<link rel="icon" href="../assets/icon.png" />
+<link rel="apple-touch-icon" href="../assets/icon.png" />
+<link rel="canonical" href="https://madeye.github.io/gterm/altstore/" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0a0b0f; --bg-2:#0d0e13; --surface:#14151c;
+    --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.12);
+    --text:#e9eaf2; --muted:#9a9cb2; --faint:#6b6d82;
+    --cyan:#2ecbe3; --cyan-bright:#38e1fb; --violet:#977ce9; --violet-bright:#ac95fe;
+    --grad:linear-gradient(105deg,var(--cyan) 0%,var(--violet) 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg); color:var(--text);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased; overflow-x:hidden;}
+  body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(120px);opacity:.45;pointer-events:none}
+  body::before{width:680px;height:680px;top:-300px;left:-220px;background:radial-gradient(circle,rgba(46,203,227,.4),transparent 70%)}
+  body::after{width:720px;height:720px;bottom:-360px;right:-260px;background:radial-gradient(circle,rgba(151,124,233,.36),transparent 70%)}
+  a{color:var(--cyan-bright);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:780px;margin:0 auto;padding:0 28px}
+  .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(11,12,16,.6);border-bottom:1px solid var(--border)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:66px;max-width:1120px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:18px;letter-spacing:-.01em;color:var(--text)}
+  .brand:hover{text-decoration:none}
+  .brand img{width:34px;height:34px;border-radius:9px}
+  .back{font-size:14px;color:var(--muted);font-weight:500}
+  .back:hover{color:var(--text);text-decoration:none}
+
+  header.page{padding:72px 0 12px}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--border-2);border-radius:999px;background:rgba(255,255,255,.03);font-size:13px;color:var(--muted);font-weight:500}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan-bright)}
+  header.page h1{font-size:46px;line-height:1.08;font-weight:800;letter-spacing:-.03em;margin:20px 0 10px}
+  header.page p.lead{font-size:18px;color:var(--muted);max-width:640px}
+  header.page p.lead b{color:var(--text);font-weight:600}
+
+  main{padding:24px 0 40px}
+  h2{font-size:23px;font-weight:700;letter-spacing:-.02em;margin:36px 0 12px}
+  p{color:var(--muted);margin-bottom:14px}
+  p b,li b{color:var(--text);font-weight:600}
+  ol,ul{color:var(--muted);margin:0 0 14px;padding-left:22px}
+  li{margin-bottom:9px}
+  code{font:600 13.5px 'JetBrains Mono',monospace;color:var(--cyan-bright);background:rgba(255,255,255,.04);padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+
+  .cta{display:flex;gap:14px;flex-wrap:wrap;margin:22px 0 8px}
+  .btn{display:inline-flex;align-items:center;gap:10px;font-weight:600;font-size:15px;padding:12px 22px;border-radius:12px;transition:transform .15s ease,box-shadow .2s ease,background .2s}
+  .btn-primary{background:var(--grad);color:#07090d;box-shadow:0 6px 26px rgba(46,203,227,.28)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 34px rgba(120,170,246,.4);text-decoration:none}
+  .btn-ghost{border:1px solid var(--border-2);color:var(--text);background:rgba(255,255,255,.02)}
+  .btn-ghost:hover{border-color:var(--cyan);color:#fff;text-decoration:none}
+  .url-row{display:flex;gap:8px;align-items:center;margin:12px 0 4px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text);
+    border:1px solid var(--border-2);border-radius:10px;padding:10px 14px;background:rgba(255,255,255,.03);overflow:auto;white-space:nowrap}
+  .copy-note{font-size:13px;color:var(--faint);margin-top:6px}
+
+  footer{border-top:1px solid var(--border);padding:40px 0 56px;margin-top:40px}
+  footer .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;max-width:1120px}
+  footer .brand img{width:30px;height:30px}
+  .foot-links{display:flex;gap:24px;font-size:14px}
+  .foot-links a{color:var(--muted)}
+  .foot-links a:hover{color:var(--text);text-decoration:none}
+  .copy{font-size:13px;color:var(--faint)}
+
+  @media (max-width:920px){
+    header.page h1{font-size:36px}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../assets/icon.png" alt="gterm icon" /> gterm</a>
+    <a class="back" href="../">← Back to home</a>
+  </div>
+</nav>
+
+<header class="page">
+  <div class="wrap">
+    <span class="pill"><span class="dot"></span> AltStore source</span>
+    <h1>Install gterm with <span class="grad-text">AltStore</span></h1>
+    <p class="lead">Add gterm to <b>AltStore</b> or <b>SideStore</b> — sideload a Ghostty-powered iOS terminal that connects over SSH, without TestFlight or the App Store.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="altstore://source?url=https%3A%2F%2Fmadeye.github.io%2Fgterm%2Faltstore.json">Add to AltStore →</a>
+      <a class="btn btn-ghost"  href="sidestore://source?url=https%3A%2F%2Fmadeye.github.io%2Fgterm%2Faltstore.json">Add to SideStore</a>
+    </div>
+    <div class="url-row"><span>Source URL:</span> <a href="../altstore.json">https://madeye.github.io/gterm/altstore.json</a></div>
+    <div class="copy-note">Tap the buttons on iOS with AltStore (or SideStore) installed; on desktop you can copy the source URL and add it manually in the app.</div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <h2>Install steps</h2>
+    <ol>
+      <li>Install <a href="https://altstore.io/">AltStore</a> (or <a href="https://sidestore.io/">SideStore</a>) on your iPhone.</li>
+      <li>Open the link above on the device, or in AltStore go to <b>Sources → +</b> and paste <code>https://madeye.github.io/gterm/altstore.json</code>.</li>
+      <li>Find <b>gterm</b> in the source and tap <b>Free</b> to install.</li>
+      <li>AltStore re-signs the app with your Apple ID; trust the developer in <b>Settings → General → VPN &amp; Device Management</b>.</li>
+    </ol>
+
+    <h2>About sideloading</h2>
+    <p>AltStore re-signs the app on install with your own Apple ID, which means it expires every 7 days on a free Apple ID (refresh in AltStore over Wi-Fi to renew) or yearly on a paid Apple Developer account. The TestFlight build is a smoother path if you prefer — <a href="https://testflight.apple.com/join/qDNYS7fd">join here</a>.</p>
+
+    <h2>Privacy</h2>
+    <p>gterm collects no personal data. SSH credentials and imported keys are stored only in the on-device Keychain. AI features are off until you configure a provider; when enabled they talk directly to that provider with your own API key. See the full <a href="../privacy/">privacy policy</a>.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../assets/icon.png" alt="" /> gterm</a>
+    <div class="foot-links">
+      <a href="../">Home</a>
+      <a href="https://testflight.apple.com/join/qDNYS7fd">TestFlight</a>
+      <a href="https://github.com/madeye/gterm">GitHub</a>
+      <a href="../privacy/">Privacy</a>
+    </div>
+    <div class="copy">Built on a fork of Ghostty · © madeye</div>
+  </div>
+</footer>
+
+</body>
+</html>

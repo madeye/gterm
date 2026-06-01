@@ -9,7 +9,7 @@ extension Ghostty {
     /// startup; the app is created with the runtime callbacks libghostty uses
     /// to talk back to us (wakeup, actions, clipboard).
     final class App: ObservableObject {
-        let config: Config
+        private(set) var config: Config
         private(set) var app: ghostty_app_t?
         private var displayLink: CADisplayLink?
 
@@ -53,6 +53,15 @@ extension Ghostty {
         func tick() {
             guard let app else { return }
             ghostty_app_tick(app)
+        }
+
+        /// Rebuild the config (picking up the current terminal theme) and apply it
+        /// so newly opened sessions use it. Call after changing the theme.
+        func reloadConfig() {
+            guard let app else { return }
+            let newConfig = Config()
+            ghostty_app_update_config(app, newConfig.c)
+            config = newConfig
         }
 
         /// Drive `ghostty_app_tick` once per display refresh so animations

@@ -7,6 +7,10 @@ struct RootView: View {
     @StateObject private var forwards = PortForwardStore()
     @State private var activeConnection: SSHConnection?
 
+    /// Whether the user has seen the Get Started screen (persisted).
+    @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
+    @State private var showWelcome = false
+
     var body: some View {
         TabView {
             ConnectionListView(store: connections, keyStore: keys, forwardStore: forwards) { connection in
@@ -19,6 +23,9 @@ struct RootView: View {
 
             AISettingsView()
                 .tabItem { Label("AI", systemImage: "sparkles") }
+
+            SettingsView(showWelcome: $showWelcome)
+                .tabItem { Label("Settings", systemImage: "gearshape") }
         }
         .fullScreenCover(item: $activeConnection) { connection in
             TerminalScreen(
@@ -29,6 +36,15 @@ struct RootView: View {
                 activeConnection = nil
             }
             .environmentObject(ghostty)
+        }
+        .fullScreenCover(isPresented: $showWelcome) {
+            OnboardingView {
+                showWelcome = false
+                hasSeenWelcome = true
+            }
+        }
+        .onAppear {
+            if !hasSeenWelcome { showWelcome = true }
         }
     }
 }

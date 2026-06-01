@@ -14,9 +14,26 @@ extension Ghostty {
             }
             self.c = cfg
 
-            // We have no config file on iOS; just finalize the defaults so the
-            // values are usable.
+            // Apply the user-selected terminal color theme (if not the default)
+            // by writing its colors to a config file and loading it.
+            Self.applyTheme(to: cfg)
+
             ghostty_config_finalize(cfg)
+        }
+
+        /// Write the selected theme's colors to a temp config file and load it.
+        /// No-op for the default theme (keeps ghostty's compiled-in colors).
+        private static func applyTheme(to cfg: ghostty_config_t) {
+            let text = TerminalTheme.selected.configText
+            guard !text.isEmpty else { return }
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("gterm-theme.conf")
+            do {
+                try text.write(to: url, atomically: true, encoding: .utf8)
+                url.path.withCString { ghostty_config_load_file(cfg, $0) }
+            } catch {
+                Ghostty.logger.error("failed to write theme config: \(String(describing: error), privacy: .public)")
+            }
         }
 
         deinit {

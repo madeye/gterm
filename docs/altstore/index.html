@@ -90,15 +90,15 @@
 
 <header class="page">
   <div class="wrap">
-    <span class="pill"><span class="dot"></span> AltStore source</span>
-    <h1>Install gterm with <span class="grad-text">AltStore</span></h1>
-    <p class="lead">Add gterm to <b>AltStore</b> or <b>SideStore</b> — sideload a Ghostty-powered iOS terminal that connects over SSH, without TestFlight or the App Store.</p>
+    <span class="pill"><span class="dot"></span> AltStore · SideStore source</span>
+    <h1>Sideload gterm with <span class="grad-text">AltStore or SideStore</span></h1>
+    <p class="lead">A Ghostty-powered iOS terminal that connects over SSH — installed from one shared source, signed on-device with your own Apple ID.</p>
     <div class="cta">
       <a class="btn btn-primary" href="altstore://source?url=https%3A%2F%2Fmadeye.github.io%2Fgterm%2Faltstore.json">Add to AltStore →</a>
-      <a class="btn btn-ghost"  href="sidestore://source?url=https%3A%2F%2Fmadeye.github.io%2Fgterm%2Faltstore.json">Add to SideStore</a>
+      <a class="btn btn-primary" href="sidestore://source?url=https%3A%2F%2Fmadeye.github.io%2Fgterm%2Faltstore.json">Add to SideStore →</a>
     </div>
     <div class="url-row"><span>Source URL:</span> <a href="../altstore.json">https://madeye.github.io/gterm/altstore.json</a></div>
-    <div class="copy-note">Tap the buttons on iOS with AltStore (or SideStore) installed; on desktop you can copy the source URL and add it manually in the app.</div>
+    <div class="copy-note">Both stores read the same source. Tap a button on iOS with the corresponding app installed; on desktop, copy the URL and add it under <b>Sources → +</b>.</div>
   </div>
 </header>
 
@@ -106,14 +106,21 @@
   <div class="wrap">
     <h2>Install steps</h2>
     <ol>
-      <li>Install <a href="https://altstore.io/">AltStore</a> (or <a href="https://sidestore.io/">SideStore</a>) on your iPhone.</li>
-      <li>Open the link above on the device, or in AltStore go to <b>Sources → +</b> and paste <code>https://madeye.github.io/gterm/altstore.json</code>.</li>
+      <li>Install <a href="https://altstore.io/">AltStore</a> or <a href="https://sidestore.io/">SideStore</a> on your iPhone (whichever you prefer — SideStore doesn't need a Mac companion).</li>
+      <li>Tap the matching <b>Add to …</b> button above on the device, or open the store and paste <code>https://madeye.github.io/gterm/altstore.json</code> under <b>Sources → +</b>.</li>
       <li>Find <b>gterm</b> in the source and tap <b>Free</b> to install.</li>
-      <li>AltStore re-signs the app with your Apple ID; trust the developer in <b>Settings → General → VPN &amp; Device Management</b>.</li>
+      <li>The store re-signs the app with your Apple ID; trust the developer in <b>Settings → General → VPN &amp; Device Management</b>.</li>
     </ol>
 
+    <h2>AltStore vs. SideStore</h2>
+    <ul>
+      <li><b>AltStore</b> pairs with a Mac/Windows companion (AltServer) that refreshes the signature when both are on the same Wi-Fi.</li>
+      <li><b>SideStore</b> refreshes on-device — no companion needed. It runs an embedded server and enables JIT on supported builds.</li>
+      <li>Both read this exact source, install the same <code>.ipa</code>, and sign it with your own Apple ID.</li>
+    </ul>
+
     <h2>About sideloading</h2>
-    <p>AltStore re-signs the app on install with your own Apple ID, which means it expires every 7 days on a free Apple ID (refresh in AltStore over Wi-Fi to renew) or yearly on a paid Apple Developer account. The TestFlight build is a smoother path if you prefer — <a href="https://testflight.apple.com/join/qDNYS7fd">join here</a>.</p>
+    <p>The store re-signs the app with your own Apple ID, which means it expires every 7 days on a free Apple ID (refresh in AltStore/SideStore over Wi-Fi to renew) or yearly on a paid Apple Developer account. The TestFlight build is a smoother path if you prefer — <a href="https://testflight.apple.com/join/qDNYS7fd">join here</a>.</p>
 
     <h2>Privacy</h2>
     <p>gterm collects no personal data. SSH credentials and imported keys are stored only in the on-device Keychain. AI features are off until you configure a provider; when enabled they talk directly to that provider with your own API key. See the full <a href="../privacy/">privacy policy</a>.</p>

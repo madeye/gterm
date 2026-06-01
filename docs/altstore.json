@@ -1,0 +1,50 @@
+{
+  "name": "gterm",
+  "identifier": "io.github.madeye.altstore",
+  "subtitle": "A Ghostty terminal, over SSH",
+  "description": "A real terminal for iOS, rendered with Ghostty's GPU engine and connected over SSH. Keys stay on device; AI command assistant; port forwarding with a built-in browser.",
+  "iconURL": "https://madeye.github.io/gterm/assets/icon.png",
+  "website": "https://madeye.github.io/gterm/",
+  "tintColor": "2ECBE3",
+  "featuredApps": ["io.github.madeye.gterm"],
+  "apps": [
+    {
+      "name": "gterm",
+      "bundleIdentifier": "io.github.madeye.gterm",
+      "developerName": "Max Lv",
+      "subtitle": "A Ghostty terminal, over SSH",
+      "localizedDescription": "gterm is a real terminal for iOS. It renders with Ghostty's GPU engine for true xterm/VT emulation, connects straight to your servers over SSH, keeps your keys on device, and ships an AI command assistant that writes the commands for you.\n\nGPU-RENDERED TERMINAL\nReal xterm/VT emulation via Ghostty's libghostty, drawn on Metal.\n\nSSH-NATIVE\nConnects with swift-nio-ssh — password and public-key auth, a PTY shell, live window resizing, and trust-on-first-use host-key verification.\n\nKEYS STAY ON DEVICE\nImport Ed25519 / ECDSA private keys into the iOS Keychain — device-only, never synced.\n\nSHELL-GRADE KEYBOARD\nA custom accessory keyboard with the keys iOS forgets — Esc, Ctrl, Alt, Tab, arrows, and sticky modifiers.\n\nAI COMMAND ASSISTANT\nDescribe what you want in plain English. The AI proposes a command and shows it for review before it runs.\n\nPORT FORWARDING & BROWSER\nForward a local port over SSH to a service on your server and open it in the built-in browser. Tap a URL in the terminal to open it there too.\n\nOpen source: https://github.com/madeye/gterm",
+    "iconURL": "https://madeye.github.io/gterm/assets/icon.png",
+    "tintColor": "2ECBE3",
+    "category": "developer",
+    "screenshots": [
+      { "imageURL": "https://madeye.github.io/gterm/altstore/01_terminal.png", "width": 1206, "height": 2622 },
+      { "imageURL": "https://madeye.github.io/gterm/altstore/02_hosts.png",    "width": 1206, "height": 2622 },
+      { "imageURL": "https://madeye.github.io/gterm/altstore/03_keys.png",     "width": 1206, "height": 2622 },
+      { "imageURL": "https://madeye.github.io/gterm/altstore/04_aicommands.png","width": 1206, "height": 2622 },
+      { "imageURL": "https://madeye.github.io/gterm/altstore/05_ai.png",       "width": 1206, "height": 2622 }
+    ],
+    "versions": [
+      {
+        "version": "1.1",
+        "buildVersion": "2026060109",
+        "marketingVersion": "1.1",
+        "date": "2026-06-01T01:23:39Z",
+        "localizedDescription": "What's new in 1.1\n\n- Get Started guide on first launch (reopen anytime from the Settings tab).\n- Settings tab with terminal color themes — Dracula, Nord, Solarized Dark, Gruvbox Dark, Catppuccin Mocha, or the default.\n- SSH port forwarding with a built-in browser.\n- Tap a URL in the terminal to open it in the browser.\n- Pinch to resize the terminal; one-finger swipe to scroll; press-and-hold to select & copy.\n- AI command assistant: a sparkles button in a session proposes a command, you review before it runs.",
+        "downloadURL": "https://github.com/madeye/gterm/releases/download/v1.1-2026060109/gterm-1.1-2026060109.ipa",
+        "size": 0,
+        "sha256": "",
+        "minOSVersion": "17.0"
+      }
+    ],
+    "appPermissions": {
+      "entitlements": [
+        "keychain-access-groups"
+      ],
+      "privacy": {
+        "NSLocalNetworkUsageDescription": "gterm connects to SSH servers, which may be on your local network."
+      }
+    }
+  }
+  ]
+}

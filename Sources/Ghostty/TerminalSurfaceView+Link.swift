@@ -19,6 +19,8 @@ extension TerminalSurfaceView {
 
     @objc private func handleLinkTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended, let surface = ghosttySurface else { return }
+        // A tap is also the affordance for re-summoning a dismissed keyboard.
+        showKeyboardIfNeeded()
         let loc = gesture.location(in: self)
         let superMods = GHOSTTY_MODS_SUPER
         // Move with super so the cell registers as over_link, then click it.

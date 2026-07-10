@@ -3,7 +3,7 @@
 An iOS terminal app that renders with [ghostty](../ghostty)'s `libghostty`
 engine (GPU/Metal, full xterm/VT emulation) and connects over **SSH**.
 
-> 📲 **Try the beta:** [Join on TestFlight](https://testflight.apple.com/join/qDNYS7fd) (iOS 17+, requires Apple's TestFlight app).
+> 📲 **Get the app:** [Download on the App Store](https://apps.apple.com/us/app/gterm-ghostty-ssh/id6774837597) (iOS 17+).
 > Or sideload with [**AltStore** or **SideStore**](https://madeye.github.io/gterm/altstore/) — both read the same source URL `https://madeye.github.io/gterm/altstore.json`.
 
 iOS can't `fork`/`exec` a local shell, so gterm drives the terminal from an SSH

@@ -46,6 +46,20 @@ final class TerminalSurfaceView: UIView {
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
         addGestureRecognizer(pinch)
 
+        // Track software-keyboard visibility so a tap can re-summon a keyboard
+        // dismissed with the iPadOS hide key (which hides the keyboard without
+        // necessarily resigning first responder). Selector-based observers are
+        // auto-removed on dealloc.
+        let nc = NotificationCenter.default
+        nc.addObserver(
+            self, selector: #selector(keyboardDidShow),
+            name: UIResponder.keyboardDidShowNotification, object: nil
+        )
+        nc.addObserver(
+            self, selector: #selector(keyboardWillHide),
+            name: UIResponder.keyboardWillHideNotification, object: nil
+        )
+
         guard let app = ghostty.app else {
             Ghostty.logger.error("TerminalSurfaceView created without a ghostty app")
             return
@@ -179,6 +193,27 @@ final class TerminalSurfaceView: UIView {
         let ok = super.resignFirstResponder()
         if let surface { ghostty_surface_set_focus(surface, false) }
         return ok
+    }
+
+    /// Whether the software keyboard (or the accessory bar when a hardware
+    /// keyboard is attached) is currently on screen.
+    private var keyboardVisible = false
+
+    @objc private func keyboardDidShow() { keyboardVisible = true }
+    @objc private func keyboardWillHide() { keyboardVisible = false }
+
+    /// Bring the software keyboard back if the user dismissed it (e.g. with the
+    /// iPadOS keyboard hide key). Tapping the terminal is the only affordance
+    /// for getting it back, so the single-tap gesture calls this.
+    func showKeyboardIfNeeded() {
+        if !isFirstResponder {
+            _ = becomeFirstResponder()
+        } else if !keyboardVisible {
+            // Still first responder but the keyboard is hidden: cycle the
+            // responder to force the keyboard back up.
+            _ = resignFirstResponder()
+            _ = becomeFirstResponder()
+        }
     }
 
     // MARK: Font size (pinch-to-zoom)

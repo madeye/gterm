@@ -26,7 +26,13 @@ Produces `GhosttyKit.xcframework` (macOS + iOS device + iOS simulator slices). R
 
 ### Generate Xcode project and build
 
+Signing config (team id, ASC key) lives in a git-ignored `.env` — copy
+`env.example` to `.env` and fill it in once. Source it before `xcodegen`
+so `${DEVELOPMENT_TEAM}` in `project.yml` expands (not needed for
+`CODE_SIGNING_ALLOWED=NO` simulator/test builds):
+
 ```sh
+set -a; source .env; set +a
 xcodegen generate
 xcodebuild -project gterm.xcodeproj -scheme gterm \
   -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
@@ -56,7 +62,8 @@ The `gtermTests` target compiles only `Sources/LLM` + `Tests/` — no GhosttyKit
 ### App Store metadata
 
 ```sh
-bundle exec fastlane deliver   # uploads metadata + screenshots from fastlane/metadata/
+set -a; source .env; set +a        # Appfile/Deliverfile read team + key from env
+fastlane deliver                   # uploads metadata + screenshots from fastlane/metadata/
 ```
 
 ## Generated / git-ignored artifacts
@@ -107,7 +114,7 @@ GhosttyKit is a static Zig library linked with `-ObjC -lstdc++`. The `Ghostty/` 
 
 - Bundle ID: `io.github.madeye.gterm`
 - Deployment target: iOS 17.0
-- Team: `SK4GFF6AHN`
+- Team: from `DEVELOPMENT_TEAM` in the git-ignored `.env` (see `env.example`); App Store Connect only accepts builds signed by the current team there — the old `SK4GFF6AHN` team is stale
 - Version/build: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`
 - Dependencies: swift-nio-ssh, swift-crypto, OpenAI (MacPaw), SwiftAnthropic
 - CI: `.github/workflows/build.yml` — builds the engine on macOS-15, caches `~/.cache/zig`

@@ -24,11 +24,13 @@ packages:
 
 settings:
   base:
-    MARKETING_VERSION: "1.1"
+    MARKETING_VERSION: "1.2"
     # Build number is the build date (YYYYMMDD); pass CURRENT_PROJECT_VERSION
     # explicitly per build (e.g. `CURRENT_PROJECT_VERSION=$(date +%Y%m%d)`).
-    CURRENT_PROJECT_VERSION: "20260605"
-    DEVELOPMENT_TEAM: SK4GFF6AHN
+    CURRENT_PROJECT_VERSION: "20260711"
+    # Team id is not committed — XcodeGen expands it from the environment.
+    # Copy env.example to .env, then: set -a; source .env; set +a; xcodegen generate
+    DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
     # Low-level C interop (Unmanaged, C function-pointer callbacks) is much
     # simpler under the Swift 5 language mode than Swift 6 strict concurrency.
     SWIFT_VERSION: "5.0"

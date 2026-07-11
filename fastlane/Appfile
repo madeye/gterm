@@ -1,3 +1,6 @@
 app_identifier("io.github.madeye.gterm")
 apple_id("max.c.lv@gmail.com")
-team_id("SK4GFF6AHN") # Apple Developer Team (Chao Lv, Individual)
+# Team id is not committed — it comes from .env (gitignored, see env.example).
+# Run `set -a; source .env; set +a` before invoking fastlane.
+team_id(ENV["DEVELOPMENT_TEAM"])
+itc_team_id(ENV["DEVELOPMENT_TEAM"])

@@ -1,7 +1,4 @@
-First release of gterm.
+Bug-fix release.
 
-- Ghostty GPU/Metal terminal renderer with full xterm/VT emulation
-- SSH transport: password and public-key auth, PTY shell, live resize, trust-on-first-use host keys
-- On-device Ed25519 / ECDSA key import, stored in the Keychain
-- Custom shell-grade accessory keyboard with sticky modifiers
-- AI command assistant and history-aware auto-completion
+- Fix a terminal engine overflow when resizing the terminal
+- Fix the on-screen keyboard not reappearing when you tap the terminal after dismissing it

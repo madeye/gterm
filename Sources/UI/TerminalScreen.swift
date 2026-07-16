@@ -133,6 +133,10 @@ struct TerminalScreen: View {
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)
             Spacer()
+            Button { terminalView?.toggleKeyboard() } label: {
+                Image(systemName: "keyboard").font(.body.weight(.semibold))
+            }
+            .accessibilityLabel("Toggle keyboard")
             Button { showingAICommands = true } label: {
                 Image(systemName: "sparkles").font(.body.weight(.semibold))
             }

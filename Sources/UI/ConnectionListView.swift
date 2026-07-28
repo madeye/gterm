@@ -2,11 +2,14 @@ import SwiftUI
 
 /// The "Hosts" tab: saved SSH connections. Tap to connect (resolving selected
 /// keys and any saved password; prompting for a password only if there's no
-/// key and none saved). Swipe to edit/delete, "+" to add.
+/// key and none saved). A host with a live background session shows a status
+/// dot; tapping it reattaches, and a leading swipe disconnects. Swipe to
+/// edit/delete, "+" to add.
 struct ConnectionListView: View {
     @ObservedObject var store: ConnectionStore
     @ObservedObject var keyStore: KeyStore
     @ObservedObject var forwardStore: PortForwardStore
+    @ObservedObject var sessions: SessionManager
     let onConnect: (SSHConnection) -> Void
 
     @State private var editing: SavedConnection?
@@ -25,9 +28,22 @@ struct ConnectionListView: View {
                 }
                 ForEach(store.connections) { conn in
                     Button { connect(conn) } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(conn.title).font(.headline)
-                            Text(conn.subtitle).font(.subheadline).foregroundStyle(.secondary)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(conn.title).font(.headline)
+                                Text(conn.subtitle).font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if let session = sessions.session(for: conn.id) {
+                                SessionBadge(session: session)
+                            }
+                        }
+                    }
+                    .swipeActions(edge: .leading) {
+                        if let session = sessions.session(for: conn.id) {
+                            Button { sessions.disconnect(session) } label: {
+                                Label("Disconnect", systemImage: "bolt.slash")
+                            }.tint(.orange)
                         }
                     }
                     .swipeActions(edge: .trailing) {
@@ -85,6 +101,12 @@ struct ConnectionListView: View {
     }
 
     private func connect(_ conn: SavedConnection) {
+        // A live background session just gets reattached — no credentials
+        // needed, so skip any password prompt.
+        if let session = sessions.session(for: conn.id), session.isAlive {
+            onConnect(session.connection)
+            return
+        }
         let keys = keyTexts(for: conn)
         if let saved = store.savedPassword(for: conn) {
             onConnect(makeConnection(conn, password: saved))
@@ -93,6 +115,35 @@ struct ConnectionListView: View {
         } else {
             promptPassword = ""
             passwordPromptFor = conn
+        }
+    }
+}
+
+/// Live status dot for a host with a background session: green when
+/// connected, orange while connecting, gray once the session has died.
+private struct SessionBadge: View {
+    @ObservedObject var session: ActiveSession
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(text).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var color: Color {
+        switch session.state {
+        case .connected: return .green
+        case .idle, .connecting, .authenticating: return .orange
+        case .failed, .closed: return .gray
+        }
+    }
+
+    private var text: String {
+        switch session.state {
+        case .connected: return "active"
+        case .idle, .connecting, .authenticating: return "connecting"
+        case .failed, .closed: return "ended"
         }
     }
 }

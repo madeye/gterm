@@ -5,7 +5,8 @@ struct RootView: View {
     @StateObject private var connections = ConnectionStore()
     @StateObject private var keys = KeyStore()
     @StateObject private var forwards = PortForwardStore()
-    @State private var activeConnection: SSHConnection?
+    @StateObject private var sessions = SessionManager()
+    @State private var activeSession: ActiveSession?
 
     /// Whether the user has seen the Get Started screen (persisted).
     @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
@@ -13,8 +14,11 @@ struct RootView: View {
 
     var body: some View {
         TabView {
-            ConnectionListView(store: connections, keyStore: keys, forwardStore: forwards) { connection in
-                activeConnection = connection
+            ConnectionListView(
+                store: connections, keyStore: keys, forwardStore: forwards, sessions: sessions
+            ) { connection in
+                let connectionForwards = connection.savedID.map { forwards.forwards(for: $0) } ?? []
+                activeSession = sessions.open(connection, ghostty: ghostty, forwards: connectionForwards)
             }
             .tabItem { Label("Hosts", systemImage: "server.rack") }
 
@@ -27,13 +31,12 @@ struct RootView: View {
             SettingsView(showWelcome: $showWelcome)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
-        .fullScreenCover(item: $activeConnection) { connection in
-            TerminalScreen(
-                connection: connection,
-                savedConnectionID: connection.savedID,
-                forwardStore: forwards
-            ) {
-                activeConnection = nil
+        .fullScreenCover(item: $activeSession) { session in
+            TerminalScreen(session: session, forwardStore: forwards) {
+                // Detach only: a live session keeps running in the background
+                // so the user can come back to it from the Hosts list.
+                sessions.pruneIfDead(session)
+                activeSession = nil
             }
             .environmentObject(ghostty)
         }

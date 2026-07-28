@@ -14,68 +14,49 @@ struct TappedURL: Identifiable {
 }
 
 /// Full-screen terminal for an active SSH connection, with a slim status bar
-/// and a close button.
+/// and a close button. The session itself is owned by `SessionManager`, so
+/// leaving this screen detaches from — but does not disconnect — the session.
 struct TerminalScreen: View {
-    @EnvironmentObject private var ghostty: Ghostty.App
-    let connection: SSHConnection
-    /// The owning `SavedConnection.id`, used to resolve persisted port forwards.
-    let savedConnectionID: UUID?
+    @ObservedObject var session: ActiveSession
     @ObservedObject var forwardStore: PortForwardStore
     let onClose: () -> Void
 
-    @State private var state: SSHSessionState = .idle
-    @State private var hostKeyRequest: HostKeyPromptRequest?
-    @State private var terminalView: TerminalSurfaceView?
     @State private var showingAICommands = false
     @State private var showingForwards = false
-    @State private var forwardStates: [UUID: PortForwardStatus] = [:]
-    @State private var session: SSHSession?
     @State private var browsing: PortForward?
     /// A URL tapped in the terminal, opened in the in-app browser.
     @State private var linkURL: TappedURL?
 
+    private var connection: SSHConnection { session.connection }
+
     /// Persisted forward configs for this connection (empty if not a saved host).
     private var connectionForwards: [PortForward] {
-        guard let id = savedConnectionID else { return [] }
+        guard let id = connection.savedID else { return [] }
         return forwardStore.forwards(for: id)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             statusBar
-            TerminalView(ghostty: ghostty, makeSession: { view in
-                SSHSession(
-                    connection: connection,
-                    view: view,
-                    forwards: connectionForwards,
-                    onHostKeyPrompt: { prompt, decide in
-                        hostKeyRequest = HostKeyPromptRequest(prompt: prompt, decide: decide)
-                    },
-                    onForwardChange: { id, st in forwardStates[id] = st }
-                ) { newState in
-                    state = newState
-                }
-            }, onCreate: { view in
-                view.onOpenURL = { url in linkURL = TappedURL(url: url) }
-                DispatchQueue.main.async { terminalView = view }
-            }, onSession: { s in
-                DispatchQueue.main.async { session = s }
-            })
+            TerminalView(surface: session.surface)
+        }
+        .onAppear {
+            session.surface.onOpenURL = { url in linkURL = TappedURL(url: url) }
         }
         .sheet(isPresented: $showingAICommands) {
             AICommandSheet(
-                runCommand: { terminalView?.runCommand($0) },
+                runCommand: { session.surface.runCommand($0) },
                 gatherContext: {
-                    (terminalView?.readVisibleText() ?? "", CommandHistory.shared.recent(limit: 15))
+                    (session.surface.readVisibleText(), CommandHistory.shared.recent(limit: 15))
                 }
             )
         }
         .sheet(isPresented: $showingForwards) {
             PortForwardStatusSheet(
                 forwards: connectionForwards,
-                statuses: forwardStates,
+                statuses: session.forwardStates,
                 onToggle: { f, on in
-                    if on { session?.startForward(f.id) } else { session?.stopForward(f.id) }
+                    if on { session.ssh.startForward(f.id) } else { session.ssh.stopForward(f.id) }
                 },
                 onOpenBrowser: { f in
                     showingForwards = false
@@ -94,21 +75,21 @@ struct TerminalScreen: View {
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .alert(
-            hostKeyRequest?.prompt.kind == .changed ? "Host Key Changed" : "Unknown Host",
+            session.hostKeyRequest?.prompt.kind == .changed ? "Host Key Changed" : "Unknown Host",
             isPresented: Binding(
-                get: { hostKeyRequest != nil },
-                set: { if !$0 { hostKeyRequest?.decide(false); hostKeyRequest = nil } }
+                get: { session.hostKeyRequest != nil },
+                set: { if !$0 { session.hostKeyRequest?.decide(false); session.hostKeyRequest = nil } }
             ),
-            presenting: hostKeyRequest
+            presenting: session.hostKeyRequest
         ) { request in
             let isChanged = request.prompt.kind == .changed
             Button(isChanged ? "Accept New Key" : "Trust", role: isChanged ? .destructive : nil) {
                 request.decide(true)
-                hostKeyRequest = nil
+                session.hostKeyRequest = nil
             }
             Button("Cancel", role: .cancel) {
                 request.decide(false)
-                hostKeyRequest = nil
+                session.hostKeyRequest = nil
             }
         } message: { request in
             Text(hostKeyMessage(request.prompt))
@@ -160,7 +141,7 @@ struct TerminalScreen: View {
                 Image(systemName: "network").font(.body.weight(.semibold))
             }
             .accessibilityLabel("Port forwards")
-            .disabled(state != .connected)
+            .disabled(session.state != .connected)
             statusIndicator
         }
         .padding(.horizontal, 14)
@@ -170,7 +151,7 @@ struct TerminalScreen: View {
     }
 
     @ViewBuilder private var statusIndicator: some View {
-        switch state {
+        switch session.state {
         case .idle, .connecting, .authenticating:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small).tint(.white)
@@ -189,7 +170,7 @@ struct TerminalScreen: View {
     }
 
     private var label: String {
-        switch state {
+        switch session.state {
         case .connecting: return "connecting…"
         case .authenticating: return "authenticating…"
         default: return ""

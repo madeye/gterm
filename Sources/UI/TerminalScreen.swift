@@ -74,7 +74,7 @@ struct TerminalScreen: View {
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
-        .onChange(of: state) { _, newState in
+        .onChange(of: session.state) { _, newState in
             // A clean remote close (e.g. `exit` in the shell) dismisses the
             // terminal; failures keep the screen up so the error stays readable.
             if newState == .closed { onClose() }
@@ -138,7 +138,7 @@ struct TerminalScreen: View {
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)
             Spacer()
-            Button { terminalView?.toggleKeyboard() } label: {
+            Button { session.surface.toggleKeyboard() } label: {
                 Image(systemName: "keyboard").font(.body.weight(.semibold))
             }
             .accessibilityLabel("Toggle keyboard")

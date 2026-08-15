@@ -152,7 +152,37 @@ final class AccessoryKeyboardView: UIInputView {
 
     // MARK: Keys row
 
+    /// The scrollable key bar plus a fixed collapse button at the trailing
+    /// edge, so "hide keyboard" is always reachable regardless of scroll
+    /// position.
     private func buildKeysRow() -> UIView {
+        let row = UIStackView()
+        row.axis = .horizontal
+        row.spacing = 2
+        row.alignment = .center
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.isLayoutMarginsRelativeArrangement = true
+        row.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 6)
+        row.addArrangedSubview(buildKeysScroll())
+        row.addArrangedSubview(buildHideButton())
+        return row
+    }
+
+    private func buildHideButton() -> UIButton {
+        let button = UIButton(type: .system)
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: "keyboard.chevron.compact.down")
+        config.baseForegroundColor = .label
+        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 8)
+        button.configuration = config
+        button.accessibilityLabel = "Hide keyboard"
+        button.addAction(UIAction { [weak self] _ in
+            self?.target?.collapseKeyboard()
+        }, for: .touchUpInside)
+        return button
+    }
+
+    private func buildKeysScroll() -> UIView {
         let scroll = UIScrollView()
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.showsHorizontalScrollIndicator = false

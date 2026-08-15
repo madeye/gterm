@@ -203,8 +203,8 @@ final class TerminalSurfaceView: UIView {
     @objc private func keyboardWillHide() { keyboardVisible = false }
 
     /// Bring the software keyboard back if the user dismissed it (e.g. with the
-    /// iPadOS keyboard hide key). Tapping the terminal is the only affordance
-    /// for getting it back, so the single-tap gesture calls this.
+    /// iPadOS keyboard hide key, or the accessory bar's collapse button). The
+    /// single-tap gesture calls this so tapping the terminal expands it again.
     func showKeyboardIfNeeded() {
         if !isFirstResponder {
             _ = becomeFirstResponder()
@@ -213,6 +213,22 @@ final class TerminalSurfaceView: UIView {
             // responder to force the keyboard back up.
             _ = resignFirstResponder()
             _ = becomeFirstResponder()
+        }
+    }
+
+    /// Collapse the on-screen keyboard (and the accessory bar with it), giving
+    /// the whole screen to the terminal. Tapping the terminal or the status-bar
+    /// keyboard button expands it again.
+    func collapseKeyboard() {
+        _ = resignFirstResponder()
+    }
+
+    /// Toggle the on-screen keyboard: collapse when visible, expand otherwise.
+    func toggleKeyboard() {
+        if isFirstResponder && keyboardVisible {
+            collapseKeyboard()
+        } else {
+            showKeyboardIfNeeded()
         }
     }
 

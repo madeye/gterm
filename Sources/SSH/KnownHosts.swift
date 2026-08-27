@@ -32,12 +32,23 @@ struct HostKeyPrompt {
 enum SSHFingerprint {
     static func sha256(ofOpenSSH openSSH: String) -> String {
         let fields = openSSH.split(separator: " ", omittingEmptySubsequences: true)
-        guard fields.count >= 2, let blob = Data(base64Encoded: String(fields[1])) else {
+        guard fields.count >= 2, let blob = decodeKeyBlob(String(fields[1])) else {
             return "SHA256:<unknown>"
         }
         let digest = SHA256.hash(data: blob)
         let b64 = Data(digest).base64EncodedString().replacingOccurrences(of: "=", with: "")
         return "SHA256:" + b64
+    }
+
+    /// OpenSSH key blobs are standard base64; some encodings omit padding, which
+    /// `Data(base64Encoded:)` rejects unless we restore it.
+    static func decodeKeyBlob(_ b64: String) -> Data? {
+        var padded = b64.trimmingCharacters(in: .whitespacesAndNewlines)
+        let remainder = padded.count % 4
+        if remainder != 0 {
+            padded += String(repeating: "=", count: 4 - remainder)
+        }
+        return Data(base64Encoded: padded, options: .ignoreUnknownCharacters)
     }
 }
 
@@ -45,17 +56,19 @@ enum SSHFingerprint {
 /// for trust-on-first-use verification.
 final class KnownHostsStore {
     private let defaultsKey = "knownHosts"
+    private let defaults: UserDefaults
     private var map: [String: String]
 
-    init() {
-        map = (UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: String]) ?? [:]
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        map = (defaults.dictionary(forKey: defaultsKey) as? [String: String]) ?? [:]
     }
 
     func key(for hostID: String) -> String? { map[hostID] }
 
     func remember(_ key: String, for hostID: String) {
         map[hostID] = key
-        UserDefaults.standard.set(map, forKey: defaultsKey)
+        defaults.set(map, forKey: defaultsKey)
     }
 }
 

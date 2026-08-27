@@ -57,6 +57,10 @@ final class PortForwardManager {
     /// off->on toggle would otherwise fail with EADDRINUSE.
     private var closing: [UUID: EventLoopFuture<Void>] = [:]
 
+    /// Set by `stopAll()`. An in-flight bind that completes afterwards must
+    /// close the new listener instead of putting it back into `listeners`.
+    private var tearingDown = false
+
     private let log = Logger(subsystem: "io.github.madeye.gterm", category: "PortForward")
 
     init(parentChannel: Channel,
@@ -78,6 +82,7 @@ final class PortForwardManager {
     func start(_ forward: PortForward) {
         group.next().execute { [weak self] in
             guard let self else { return }
+            if self.tearingDown { return }
             let id = forward.id
             // Idempotent: already listening, or a bind is already in flight.
             if self.listeners[id] != nil || self.starting.contains(id) { return }
@@ -96,6 +101,10 @@ final class PortForwardManager {
     /// already contains the id (cleared here when the bind settles).
     private func performBind(_ forward: PortForward) {
         let id = forward.id
+        if tearingDown {
+            starting.remove(id)
+            return
+        }
         let bootstrap = ServerBootstrap(group: self.group)
             .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
             .serverChannelOption(ChannelOptions.backlog, value: 16)
@@ -111,6 +120,12 @@ final class PortForwardManager {
         bootstrap.bind(host: "127.0.0.1", port: forward.localPort).whenComplete { [weak self] result in
             guard let self else { return }
             self.starting.remove(id)
+            if self.tearingDown {
+                if case .success(let serverChannel) = result {
+                    serverChannel.close(promise: nil)
+                }
+                return
+            }
             switch result {
             case .success(let serverChannel):
                 self.listeners[id] = serverChannel
@@ -154,6 +169,7 @@ final class PortForwardManager {
         let promise = loop.makePromise(of: Void.self)
         loop.execute { [weak self] in
             guard let self else { return promise.succeed(()) }
+            self.tearingDown = true
             var closes: [EventLoopFuture<Void>] = []
             for ch in self.listeners.values { closes.append(ch.close().recover { _ in () }) }
             self.listeners.removeAll()

@@ -19,16 +19,6 @@ struct SSHConnection: Identifiable {
     var savedID: UUID? = nil
 }
 
-/// High-level lifecycle of an SSH session, surfaced to the UI.
-enum SSHSessionState: Equatable {
-    case idle
-    case connecting
-    case authenticating
-    case connected
-    case failed(String)
-    case closed
-}
-
 /// Drives an interactive SSH shell over a PTY using swift-nio-ssh and feeds it
 /// into a TerminalSurfaceView. It is the surface's delegate: user input flows
 /// out to the channel, server output flows into the surface, and resizes are
@@ -36,7 +26,7 @@ enum SSHSessionState: Equatable {
 final class SSHSession: TerminalSession {
     private let connection: SSHConnection
     private weak var view: TerminalSurfaceView?
-    private let onStateChange: (SSHSessionState) -> Void
+    private let lifecycle: SessionStateNotifier
     private let onHostKeyPrompt: TOFUHostKeyDelegate.Prompt?
 
     private let group: EventLoopGroup
@@ -61,32 +51,29 @@ final class SSHSession: TerminalSession {
         self.forwards = forwards
         self.onHostKeyPrompt = onHostKeyPrompt
         self.onForwardChange = onForwardChange
-        self.onStateChange = onStateChange
+        self.lifecycle = SessionStateNotifier(onStateChange: onStateChange)
         self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     }
 
     // MARK: TerminalSession
 
     func start() {
-        notify(.connecting)
+        lifecycle.setStopped(false)
+        lifecycle.notify(.connecting)
 
         // Build authentication offers in preference order: private key (if
-        // provided), then password (if provided).
+        // provided), then password (if provided). Skip keys that fail to parse
+        // so one RSA/encrypted key does not block a good key or password.
         var offers: [NIOSSHUserAuthenticationOffer.Offer] = []
-        for keyText in connection.privateKeys where !keyText.isEmpty {
-            do {
-                let parsed = try SSHKeyParser.parse(keyText)
-                offers.append(.privateKey(.init(privateKey: parsed.key)))
-            } catch {
-                notify(.failed(Self.describe(error)))
-                return
-            }
+        let parsed = SSHKeyParser.parseUsable(connection.privateKeys)
+        for item in parsed.keys {
+            offers.append(.privateKey(.init(privateKey: item.key)))
         }
         if !connection.password.isEmpty {
             offers.append(.password(.init(password: connection.password)))
         }
         guard !offers.isEmpty else {
-            notify(.failed("No authentication method provided."))
+            lifecycle.notify(.failed(parsed.firstError.map(Self.describe) ?? "No authentication method provided."))
             return
         }
 
@@ -98,6 +85,7 @@ final class SSHSession: TerminalSession {
 
         let bootstrap = ClientBootstrap(group: group)
             .channelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+            .channelOption(ChannelOptions.connectTimeout, value: .seconds(20))
             .channelInitializer { channel in
                 let sshHandler = NIOSSHHandler(
                     role: .client(.init(
@@ -110,12 +98,16 @@ final class SSHSession: TerminalSession {
                 return channel.pipeline.addHandler(sshHandler)
             }
 
-        notify(.authenticating)
+        lifecycle.notify(.authenticating)
         bootstrap.connect(host: connection.host, port: connection.port).whenComplete { [weak self] result in
             guard let self else { return }
+            if self.lifecycle.isStopped() {
+                if case .success(let channel) = result { channel.close(promise: nil) }
+                return
+            }
             switch result {
             case .failure(let error):
-                self.notify(.failed(Self.describe(error)))
+                self.lifecycle.notify(.failed(Self.describe(error)))
             case .success(let channel):
                 self.channel = channel
                 self.openShellChannel(on: channel)
@@ -124,6 +116,7 @@ final class SSHSession: TerminalSession {
     }
 
     func stop() {
+        lifecycle.setStopped(true)
         let group = self.group
         // Close port-forward listeners + tunnels FIRST and wait for them to be
         // fully released, THEN close the channels and shut the group down. Shutting
@@ -146,13 +139,21 @@ final class SSHSession: TerminalSession {
     // MARK: Open the PTY shell child channel
 
     private func openShellChannel(on channel: Channel) {
+        if lifecycle.isStopped() {
+            channel.close(promise: nil)
+            return
+        }
         let (cols, rows) = view?.gridSize ?? (80, 24)
 
         channel.pipeline.handler(type: NIOSSHHandler.self).whenComplete { [weak self] result in
             guard let self else { return }
+            if self.lifecycle.isStopped() {
+                channel.close(promise: nil)
+                return
+            }
             switch result {
             case .failure(let error):
-                self.notify(.failed(Self.describe(error)))
+                self.lifecycle.notify(.failed(Self.describe(error)))
 
             case .success(let sshHandler):
                 let promise = channel.eventLoop.makePromise(of: Channel.self)
@@ -177,9 +178,13 @@ final class SSHSession: TerminalSession {
 
                 promise.futureResult.whenComplete { [weak self] result in
                     guard let self else { return }
+                    if self.lifecycle.isStopped() {
+                        if case .success(let child) = result { child.close(promise: nil) }
+                        return
+                    }
                     switch result {
                     case .failure(let error):
-                        self.notify(.failed(Self.describe(error)))
+                        self.lifecycle.notify(.failed(Self.describe(error)))
                     case .success(let childChannel):
                         self.childChannel = childChannel
                         // The parent `channel` is the authenticated connection;
@@ -191,7 +196,7 @@ final class SSHSession: TerminalSession {
                         )
                         self.forwardManager = mgr
                         for f in self.forwards where f.autoStart { mgr.start(f) }
-                        self.notify(.connected)
+                        self.lifecycle.notify(.connected)
                     }
                 }
             }
@@ -221,9 +226,9 @@ final class SSHSession: TerminalSession {
 
     private func handleChannelClose(_ error: Error?) {
         if let error {
-            notify(.failed(Self.describe(error)))
+            lifecycle.notify(.failed(Self.describe(error)))
         } else {
-            notify(.closed)
+            lifecycle.notify(.closed)
         }
     }
 
@@ -246,10 +251,6 @@ final class SSHSession: TerminalSession {
     }
 
     // MARK: Helpers
-
-    private func notify(_ state: SSHSessionState) {
-        DispatchQueue.main.async { [onStateChange] in onStateChange(state) }
-    }
 
     private static func describe(_ error: Error) -> String {
         if let keyError = error as? SSHKeyError {

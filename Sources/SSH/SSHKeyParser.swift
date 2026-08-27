@@ -46,12 +46,30 @@ enum SSHKeyParser {
             throw SSHKeyError.encrypted
         }
         if trimmed.contains("BEGIN EC PRIVATE KEY") || trimmed.contains("BEGIN PRIVATE KEY") {
-            return try parsePEMECDSA(text)
+            return try parsePEMECDSA(trimmed)
         }
         if trimmed.contains("PUBLIC KEY") || trimmed.hasPrefix("ssh-") || trimmed.hasPrefix("ecdsa-") {
             throw SSHKeyError.notAPrivateKey
         }
         throw SSHKeyError.malformed("unrecognized format")
+    }
+
+    /// Parse every non-empty key blob, skipping ones that fail. The first
+    /// parse error is returned so the caller can surface it when *nothing*
+    /// usable remains (no valid key and no password).
+    static func parseUsable(_ texts: [String]) -> (keys: [ParsedKey], firstError: Error?) {
+        var keys: [ParsedKey] = []
+        var firstError: Error?
+        for text in texts {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            do {
+                keys.append(try parse(trimmed))
+            } catch {
+                if firstError == nil { firstError = error }
+            }
+        }
+        return (keys, firstError)
     }
 
     private static func friendlyType(_ sshName: String) -> String {

@@ -60,6 +60,23 @@ final class CommandSanitizerTests: XCTestCase {
     func testEmptyForBlank() {
         XCTAssertEqual(CommandSanitizer.command(fromOutput: "   \n\n  "), "")
     }
+
+    func testStripsCRLF() {
+        XCTAssertEqual(CommandSanitizer.command(fromOutput: "tmux new-window\r\n"), "tmux new-window")
+    }
+
+    func testUnwrapsSurroundingQuotes() {
+        XCTAssertEqual(CommandSanitizer.command(fromOutput: "\"tmux new-window\""), "tmux new-window")
+        XCTAssertEqual(CommandSanitizer.command(fromOutput: "'df -h'"), "df -h")
+    }
+
+    func testQuotedPromptLine() {
+        XCTAssertEqual(CommandSanitizer.command(fromOutput: "\"$ ls -la\""), "ls -la")
+    }
+
+    func testKeepsInternalQuotes() {
+        XCTAssertEqual(CommandSanitizer.command(fromOutput: "echo \"hello\""), "echo \"hello\"")
+    }
 }
 
 final class QuickCommandsTests: XCTestCase {

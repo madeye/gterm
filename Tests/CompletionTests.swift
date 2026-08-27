@@ -73,6 +73,24 @@ final class CompletionSanitizerTests: XCTestCase {
         // currentLine "git" + full "git status" -> suffix " status" (with space).
         XCTAssertEqual(CompletionSanitizer.suffix(fromOutput: "git status", currentLine: "git"), " status")
     }
+
+    func testFallbackSuffixKeepsLeadingSpace() {
+        // Model returned only the suffix, including the separator space.
+        XCTAssertEqual(CompletionSanitizer.suffix(fromOutput: " status", currentLine: "git"), " status")
+    }
+
+    func testStripsCRLFBeforeMatchingPrefix() {
+        XCTAssertEqual(CompletionSanitizer.suffix(fromOutput: "git status\r\n", currentLine: "git st"), "atus")
+    }
+
+    func testUnwrapsSurroundingQuotes() {
+        XCTAssertEqual(CompletionSanitizer.suffix(fromOutput: "\"git status\"", currentLine: "git st"), "atus")
+        XCTAssertEqual(CompletionSanitizer.suffix(fromOutput: "'git status'", currentLine: "git st"), "atus")
+    }
+
+    func testPaddedFullLineStillYieldsSuffix() {
+        XCTAssertEqual(CompletionSanitizer.suffix(fromOutput: " git status", currentLine: "git st"), "atus")
+    }
 }
 
 final class CompletionPolicyTests: XCTestCase {

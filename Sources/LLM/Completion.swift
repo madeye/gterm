@@ -64,6 +64,7 @@ enum CompletionSanitizer {
 
         line = trimTrailingWhitespace(line)
         line = line.trimmingCharacters(in: CharacterSet(charactersIn: "`"))
+        line = unwrapSurroundingQuotes(line)
         line = trimTrailingWhitespace(line)
 
         // Preferred contract: the model echoes the full command line, so we
@@ -72,27 +73,42 @@ enum CompletionSanitizer {
         if line.hasPrefix(currentLine) {
             return String(line.dropFirst(currentLine.count))
         }
-        // Fallback: the model returned just the suffix.
-        return line.trimmingCharacters(in: .whitespaces)
+        // Some models pad the echoed line with a leading space.
+        let stripped = String(line.drop(while: { $0 == " " || $0 == "\t" }))
+        if stripped.hasPrefix(currentLine) {
+            return String(stripped.dropFirst(currentLine.count))
+        }
+        // Fallback: the model returned just the suffix. Keep a leading space so
+        // currentLine "git" + suffix " status" does not become "gitstatus".
+        return trimTrailingWhitespace(line)
     }
 
     private static func stripFenceLines(_ text: String) -> String {
         text.split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("```") }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("```") }
             .joined(separator: "\n")
     }
 
     private static func firstNonBlankLine(_ text: String) -> String? {
         text.split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init)
-            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     private static func trimTrailingWhitespace(_ text: String) -> String {
         var result = text
-        while let last = result.last, last == " " || last == "\t" { result.removeLast() }
+        while let last = result.last, last.isWhitespace { result.removeLast() }
         return result
+    }
+
+    /// Unwrap one matching pair of quotes around the whole line.
+    static func unwrapSurroundingQuotes(_ text: String) -> String {
+        guard text.count >= 2, let first = text.first, let last = text.last else { return text }
+        if (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+            return String(text.dropFirst().dropLast())
+        }
+        return text
     }
 }
 

@@ -71,7 +71,7 @@ enum CommandSanitizer {
         var inside = false
         var collected: [String] = []
         for line in lines {
-            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+            if line.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("```") {
                 if inside { return collected.joined(separator: "\n") } // closing fence
                 inside = true
                 continue
@@ -85,18 +85,28 @@ enum CommandSanitizer {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init)
             .map(stripLine)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func stripLine(_ line: String) -> String {
-        var s = line.trimmingCharacters(in: .whitespaces)
+        var s = line.trimmingCharacters(in: .whitespacesAndNewlines)
         s = s.trimmingCharacters(in: CharacterSet(charactersIn: "`"))
+        s = unwrapSurroundingQuotes(s)
         for prefix in ["$ ", "# ", "% "] where s.hasPrefix(prefix) {
             s = String(s.dropFirst(prefix.count))
             break
         }
-        return s
+        return unwrapSurroundingQuotes(s)
+    }
+
+    /// Unwrap one matching pair of quotes around the whole line.
+    static func unwrapSurroundingQuotes(_ text: String) -> String {
+        guard text.count >= 2, let first = text.first, let last = text.last else { return text }
+        if (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+            return String(text.dropFirst().dropLast())
+        }
+        return text
     }
 }
 

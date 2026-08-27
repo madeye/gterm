@@ -25,7 +25,7 @@ struct AddConnectionView: View {
     private var isValid: Bool {
         !connection.host.trimmingCharacters(in: .whitespaces).isEmpty &&
         !connection.username.trimmingCharacters(in: .whitespaces).isEmpty &&
-        Int(portText) != nil
+        SSHPort.parse(portText) != nil
     }
 
     var body: some View {
@@ -133,7 +133,7 @@ struct AddConnectionView: View {
     private func save() {
         connection.host = connection.host.trimmingCharacters(in: .whitespaces)
         connection.username = connection.username.trimmingCharacters(in: .whitespaces)
-        connection.port = Int(portText) ?? 22
+        connection.port = SSHPort.parse(portText) ?? 22
         store.save(connection, password: password)
         dismiss()
     }

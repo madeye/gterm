@@ -6,34 +6,37 @@ import Foundation
 /// This is a best-effort *local* mirror of what the user types — it does not
 /// read the remote shell's own history. Entries are capped, deduplicated
 /// (most-recent first), and persisted in UserDefaults so suggestions survive
-/// app restarts. Stored as plain text; callers should avoid recording lines
-/// that are obviously secrets (handled at the call site).
+/// app restarts. Stored as plain text; `CommandHistoryPolicy` drops obvious
+/// secret-bearing lines before they are saved.
 final class CommandHistory {
     static let shared = CommandHistory()
 
     private let defaultsKey = "commandHistory"
+    private let defaults: UserDefaults
     private let maxEntries = 200
-    private let minLength = 2
 
     private var entries: [String] = [] // most-recent first
 
-    init() { load() }
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        load()
+    }
 
     private func load() {
-        if let saved = UserDefaults.standard.stringArray(forKey: defaultsKey) {
+        if let saved = defaults.stringArray(forKey: defaultsKey) {
             entries = saved
         }
     }
 
     private func persist() {
-        UserDefaults.standard.set(entries, forKey: defaultsKey)
+        defaults.set(entries, forKey: defaultsKey)
     }
 
-    /// Record a completed command line. Blank/too-short lines are ignored;
-    /// duplicates move to the front so recent commands rank highest.
+    /// Record a completed command line. Blank/too-short/secret-looking lines
+    /// are ignored; duplicates move to the front so recent commands rank highest.
     func record(_ line: String) {
+        guard CommandHistoryPolicy.shouldRecord(line) else { return }
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard trimmed.count >= minLength else { return }
         entries.removeAll { $0 == trimmed }
         entries.insert(trimmed, at: 0)
         if entries.count > maxEntries {
@@ -63,5 +66,35 @@ final class CommandHistory {
     func clear() {
         entries.removeAll()
         persist()
+    }
+}
+
+/// Decides whether a committed line is safe to persist as shell history.
+enum CommandHistoryPolicy {
+    static let minLength = 2
+
+    static func shouldRecord(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= minLength else { return false }
+        let lower = trimmed.lowercased()
+        if lower == "passwd" || lower.hasPrefix("passwd ") { return false }
+        if lower.hasPrefix("sshpass ") { return false }
+        return !containsSecretAssignment(trimmed)
+    }
+
+    /// True when a whitespace-delimited token looks like `NAME=value` and NAME
+    /// is a password/secret/token/api-key style identifier.
+    private static func containsSecretAssignment(_ line: String) -> Bool {
+        for token in line.split(whereSeparator: { $0.isWhitespace }) {
+            guard let eq = token.firstIndex(of: "=") else { continue }
+            let name = token[..<eq].lowercased()
+            if name.contains("password") || name.contains("passwd")
+                || name.contains("secret") || name.contains("token")
+                || name.contains("apikey") || name.contains("api_key")
+                || name.contains("api-key") {
+                return true
+            }
+        }
+        return false
     }
 }

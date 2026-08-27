@@ -97,7 +97,7 @@ final class HTTPProviderClient: LLMProviderClient {
     }
 
     @MainActor private func streamOpenAIChat(request: LLMRequest, onDelta: (@MainActor (String) -> Void)?) async throws -> LLMResponse {
-        let client = OpenAI(configuration: openAIConfiguration())
+        let client = OpenAI(configuration: try openAIConfiguration())
         guard let systemMessage = ChatQuery.ChatCompletionMessageParam(role: .system, content: request.systemPrompt),
               let userMessage = ChatQuery.ChatCompletionMessageParam(role: .user, content: request.userPrompt) else {
             throw LLMProviderError.malformedJSON
@@ -196,8 +196,8 @@ final class HTTPProviderClient: LLMProviderClient {
         return try finalize(content: content, reasoning: reasoning, model: model, usage: usage)
     }
 
-    private func openAIConfiguration() -> OpenAI.Configuration {
-        let (scheme, host, port, basePath) = ProviderURLSplitter.split(baseURL: profile.baseURL, endpoint: profile.chatEndpoint)
+    private func openAIConfiguration() throws -> OpenAI.Configuration {
+        let (scheme, host, port, basePath) = try ProviderURLSplitter.split(baseURL: profile.baseURL, endpoint: profile.chatEndpoint)
         return OpenAI.Configuration(
             token: apiKey,
             host: host,
@@ -255,12 +255,22 @@ final class HTTPProviderClient: LLMProviderClient {
 /// Splits a base URL + endpoint into the components the MacPaw OpenAI SDK needs.
 /// Ported from runse so the streaming URL is built identically. Pure/testable.
 enum ProviderURLSplitter {
-    static func split(baseURL: String, endpoint: String) -> (scheme: String, host: String, port: Int, basePath: String) {
-        let url = URL(string: baseURL)
-        let scheme = url?.scheme ?? "https"
-        let host = url?.host ?? "api.openai.com"
-        let port = url?.port ?? (scheme == "https" ? 443 : 80)
-        let path = url?.path ?? ""
+    static func split(baseURL: String, endpoint: String) throws -> (scheme: String, host: String, port: Int, basePath: String) {
+        let trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LLMProviderError.invalidURL }
+        // Accept "host[:port][/path]" without a scheme; never guess a vendor host.
+        let normalized = trimmed.contains("://") ? trimmed : "https://\(trimmed)"
+        guard let url = URL(string: normalized),
+              let host = url.host,
+              !host.isEmpty else {
+            throw LLMProviderError.invalidURL
+        }
+        let scheme = (url.scheme ?? "https").lowercased()
+        guard scheme == "https" || scheme == "http" else {
+            throw LLMProviderError.invalidURL
+        }
+        let port = url.port ?? (scheme == "https" ? 443 : 80)
+        let path = url.path
         // MacPaw/OpenAI tacks "/chat/completions" onto basePath itself, so we
         // strip that suffix if the profile's endpoint includes it.
         let endpointBase: String

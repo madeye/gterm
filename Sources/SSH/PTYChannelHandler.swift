@@ -23,6 +23,7 @@ final class PTYChannelHandler: ChannelDuplexHandler {
     private let onClose: (Error?) -> Void
 
     private var context: ChannelHandlerContext?
+    private var closeOnce = ChannelCloseOnce()
 
     init(
         term: String,
@@ -66,7 +67,7 @@ final class PTYChannelHandler: ChannelDuplexHandler {
     }
 
     func channelInactive(context: ChannelHandlerContext) {
-        onClose(nil)
+        closeOnce.deliver(nil, to: onClose)
         context.fireChannelInactive()
     }
 
@@ -79,7 +80,7 @@ final class PTYChannelHandler: ChannelDuplexHandler {
     }
 
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        onClose(error)
+        closeOnce.deliver(error, to: onClose)
         context.close(promise: nil)
     }
 

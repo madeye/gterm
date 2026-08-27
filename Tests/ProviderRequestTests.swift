@@ -35,8 +35,8 @@ final class ProviderRequestTests: XCTestCase {
 /// Covers the streaming URL construction the OpenAI SDK consumes (the runse
 /// `ProviderURLSplitter`).
 final class ProviderURLSplitterTests: XCTestCase {
-    func testSplitsStandardOpenAIBase() {
-        let (scheme, host, port, basePath) = ProviderURLSplitter.split(
+    func testSplitsStandardOpenAIBase() throws {
+        let (scheme, host, port, basePath) = try ProviderURLSplitter.split(
             baseURL: "https://api.openai.com", endpoint: "/v1/chat/completions"
         )
         XCTAssertEqual(scheme, "https")
@@ -46,21 +46,42 @@ final class ProviderURLSplitterTests: XCTestCase {
         XCTAssertEqual(basePath, "/v1")
     }
 
-    func testSplitsChinaProviderWithPathPrefix() {
+    func testSplitsChinaProviderWithPathPrefix() throws {
         // GLM keeps its "/api/paas/v4" prefix once "/chat/completions" is stripped.
-        let (_, host, _, basePath) = ProviderURLSplitter.split(
+        let (_, host, _, basePath) = try ProviderURLSplitter.split(
             baseURL: "https://open.bigmodel.cn/api/paas/v4", endpoint: "/chat/completions"
         )
         XCTAssertEqual(host, "open.bigmodel.cn")
         XCTAssertEqual(basePath, "/api/paas/v4")
     }
 
-    func testSplitsDeepSeekBareBase() {
-        let (_, host, _, basePath) = ProviderURLSplitter.split(
+    func testSplitsDeepSeekBareBase() throws {
+        let (_, host, _, basePath) = try ProviderURLSplitter.split(
             baseURL: "https://api.deepseek.com", endpoint: "/chat/completions"
         )
         XCTAssertEqual(host, "api.deepseek.com")
         XCTAssertEqual(basePath, "")
+    }
+
+    func testHostWithoutSchemeDefaultsToHTTPS() throws {
+        let (scheme, host, port, _) = try ProviderURLSplitter.split(
+            baseURL: "api.example.com", endpoint: "/v1/chat/completions"
+        )
+        XCTAssertEqual(scheme, "https")
+        XCTAssertEqual(host, "api.example.com")
+        XCTAssertEqual(port, 443)
+    }
+
+    func testInvalidURLDoesNotFallBackToOpenAI() {
+        let bad = ["", "https://", "   ", "not a url", "ftp://api.example.com"]
+        for base in bad {
+            XCTAssertThrowsError(
+                try ProviderURLSplitter.split(baseURL: base, endpoint: "/v1/chat/completions"),
+                "expected invalidURL for \(base)"
+            ) { error in
+                XCTAssertEqual(error as? LLMProviderError, .invalidURL)
+            }
+        }
     }
 
     func testExtraHeadersParsing() {

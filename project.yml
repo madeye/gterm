@@ -116,9 +116,20 @@ targets:
     sources:
       - path: Tests
       - path: Sources/LLM
+      # Foundation-safe units covered by the audit (no GhosttyKit / UIKit).
+      - path: Sources/SSH/SSHKeyParser.swift
+      - path: Sources/SSH/KnownHosts.swift
+      - path: Sources/SSH/ChannelCloseOnce.swift
+      - path: Sources/SSH/SessionStateNotifier.swift
+      - path: Sources/SSH/SSHPort.swift
+      - path: Sources/Model/CommandHistory.swift
     dependencies:
       - package: OpenAI
       - package: SwiftAnthropic
+      - package: SwiftNIOSSH
+        product: NIOSSH
+      - package: SwiftCrypto
+        product: Crypto
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gtermTests

@@ -14,10 +14,15 @@ protocol TerminalSurfaceViewDelegate: AnyObject {
 
     /// The terminal title changed (OSC 0/2).
     func terminalSurface(_ view: TerminalSurfaceView, didChangeTitle title: String)
+
+    /// The app (or this view) became visible again after being frozen or
+    /// off-screen. The session should ask the remote to redraw (window-change).
+    func terminalSurfaceDidResume(_ view: TerminalSurfaceView, cols: Int, rows: Int)
 }
 
 extension TerminalSurfaceViewDelegate {
     func terminalSurface(_ view: TerminalSurfaceView, didChangeTitle title: String) {}
+    func terminalSurfaceDidResume(_ view: TerminalSurfaceView, cols: Int, rows: Int) {}
 }
 
 /// A UIView that hosts a libghostty terminal surface (rendered into its
@@ -42,7 +47,7 @@ final class TerminalSurfaceView: UIView {
         isOpaque = true
         contentMode = .redraw
 
-        // Pinch (two-finger) to change the font size, which reflows the grid.
+        // Pinch: font size normally; Herdr pane zoom when attachHerdr is on.
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
         addGestureRecognizer(pinch)
 
@@ -58,6 +63,14 @@ final class TerminalSurfaceView: UIView {
         nc.addObserver(
             self, selector: #selector(keyboardWillHide),
             name: UIResponder.keyboardWillHideNotification, object: nil
+        )
+        nc.addObserver(
+            self, selector: #selector(appWillResignActive),
+            name: UIApplication.willResignActiveNotification, object: nil
+        )
+        nc.addObserver(
+            self, selector: #selector(appDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification, object: nil
         )
 
         guard let app = ghostty.app else {
@@ -96,6 +109,22 @@ final class TerminalSurfaceView: UIView {
     }
 
     // MARK: Link opening
+
+    /// When true, a tap is delivered as an unmodified mouse left-click so
+    /// Herdr's mouse-native TUI is reachable, and the accessory bar shows
+    /// one-tap Herdr prefix chords. Set from the saved connection.
+    var attachHerdr = false {
+        didSet {
+            if !attachHerdr { herdrPaneZoomed = false }
+            accessory.setHerdrEnabled(attachHerdr)
+        }
+    }
+
+    /// Best-effort local mirror of Herdr pane-zoom (`prefix+z`). Used so a
+    /// pinch-out zooms in and a pinch-in zooms out instead of toggling blindly.
+    /// Desyncs if the user zooms from Herdr's own UI; the next matching pinch
+    /// or Zoom key resyncs.
+    private var herdrPaneZoomed = false
 
     /// Called when the user taps a URL in the terminal; the SwiftUI layer routes
     /// it to the in-app browser. Set by the hosting view.
@@ -141,11 +170,34 @@ final class TerminalSurfaceView: UIView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        syncSize()
-        sizeRenderLayers()
         if window != nil {
+            restoreDisplay()
             _ = becomeFirstResponder()
         }
+    }
+
+    @objc private func appWillResignActive() {
+        guard let surface else { return }
+        ghostty_surface_set_occlusion(surface, false)
+    }
+
+    @objc private func appDidBecomeActive() {
+        restoreDisplay()
+        let (cols, rows) = gridSize
+        delegate?.terminalSurfaceDidResume(self, cols: cols, rows: rows)
+    }
+
+    /// Un-occlude, resize the Metal layer, and force a frame. Needed after
+    /// iOS suspends the process (IOSurface/drawables go stale) and after the
+    /// surface is reinserted into the hierarchy.
+    private func restoreDisplay() {
+        guard let surface else { return }
+        ghostty_surface_set_occlusion(surface, true)
+        syncSize()
+        sizeRenderLayers()
+        ghostty_surface_refresh(surface)
+        ghostty_surface_draw(surface)
+        ghostty?.tick()
     }
 
     override func layoutSubviews() {
@@ -242,20 +294,37 @@ final class TerminalSurfaceView: UIView {
         return action.withCString { ghostty_surface_binding_action(surface, $0, UInt(len)) }
     }
 
-    /// Two-finger pinch adjusts the font size one point at a time. Each ~12%
-    /// of pinch crosses a step; we reset the recognizer's scale after stepping
-    /// so a continuous pinch keeps zooming. Changing the font size reflows the
-    /// grid, which fires the resize callback (-> SSH window-change).
+    /// Two-finger pinch: font-size steps when Herdr is off; pane zoom
+    /// (`prefix+z`) when it is on. Font-size changes reflow the grid and
+    /// fire a resize callback (-> SSH window-change), which fights Herdr's
+    /// layout, so they are not used on that path.
     @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
-        guard gesture.state == .changed else { return }
-        let step: CGFloat = 1.12
-        if gesture.scale >= step {
-            performBindingAction("increase_font_size:1")
-            gesture.scale = 1
-        } else if gesture.scale <= 1 / step {
-            performBindingAction("decrease_font_size:1")
-            gesture.scale = 1
+        let phase: HerdrSupport.PinchPhase
+        switch gesture.state {
+        case .changed: phase = .changed
+        case .ended, .cancelled: phase = .ended
+        default: return
         }
+        switch HerdrSupport.pinchAction(
+            attachHerdr: attachHerdr,
+            scale: Double(gesture.scale),
+            phase: phase
+        ) {
+        case .changeFontSize(let increase):
+            performBindingAction(increase ? "increase_font_size:1" : "decrease_font_size:1")
+            gesture.scale = 1
+        case .herdrPaneZoom(let zoomIn):
+            applyHerdrPaneZoom(zoomIn: zoomIn)
+        case .none:
+            break
+        }
+    }
+
+    /// Send Herdr's zoom chord only when the local zoomed flag disagrees.
+    private func applyHerdrPaneZoom(zoomIn: Bool) {
+        guard herdrPaneZoomed != zoomIn,
+              let shortcut = HerdrSupport.shortcut(.zoom) else { return }
+        sendHerdrShortcut(shortcut)
     }
 
     // MARK: Accessory keyboard + sticky modifiers
@@ -295,6 +364,33 @@ final class TerminalSurfaceView: UIView {
     func pressSpecial(_ key: Ghostty.Key) {
         sendKey(key, mods: stickyMods)
         clearStickyMods()
+    }
+
+    /// Play a Herdr accessory-bar shortcut: prefix (`ctrl+b`) then the
+    /// follow-up key, using the same encoder path as typing those keys.
+    func sendHerdrShortcut(_ shortcut: HerdrSupport.Shortcut) {
+        clearStickyMods()
+        for stroke in shortcut.strokes {
+            sendHerdrStroke(stroke)
+        }
+        if shortcut.id == .zoom { herdrPaneZoomed.toggle() }
+    }
+
+    private func sendHerdrStroke(_ stroke: HerdrSupport.Keystroke) {
+        guard let ch = stroke.character.first,
+              let (key, charShift) = Ghostty.Key.physical(for: ch) else { return }
+        let shift = stroke.shift || charShift
+        if stroke.ctrl || stroke.alt || shift {
+            var mods = Ghostty.Mods.none
+            if stroke.ctrl { mods.insert(.ctrl) }
+            if stroke.alt { mods.insert(.alt) }
+            if shift { mods.insert(.shift) }
+            sendKey(key, mods: mods)
+        } else {
+            // Bare follow-up after the prefix: typed-key path so it is not
+            // wrapped in bracketed paste (same reason as tmux prefix + ":").
+            sendCharacter(stroke.character)
+        }
     }
 
     /// Insert a printable symbol from the accessory bar, applying armed

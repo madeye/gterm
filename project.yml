@@ -7,6 +7,9 @@ options:
   groupSortPosition: top
 
 packages:
+  SwiftNIO:
+    url: https://github.com/apple/swift-nio.git
+    from: 2.81.0
   SwiftNIOSSH:
     url: https://github.com/apple/swift-nio-ssh.git
     minorVersion: 0.13.0
@@ -120,10 +123,16 @@ targets:
       - path: Sources/SSH/SSHKeyParser.swift
       - path: Sources/SSH/KnownHosts.swift
       - path: Sources/SSH/ChannelCloseOnce.swift
+      - path: Sources/SSH/PTYChannelHandler.swift
       - path: Sources/SSH/SessionStateNotifier.swift
       - path: Sources/SSH/SSHPort.swift
       - path: Sources/Model/CommandHistory.swift
+      - path: Sources/Model/HerdrSupport.swift
+      - path: Sources/Model/ConnectionStore.swift
+      - path: Sources/Model/Keychain.swift
     dependencies:
+      - package: SwiftNIO
+        product: NIOEmbedded
       - package: OpenAI
       - package: SwiftAnthropic
       - package: SwiftNIOSSH
@@ -135,3 +144,26 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gtermTests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "5.0"
+
+  # Runs real shell-startup regressions on macOS as well as SSH channel tests.
+  # Process is unavailable on iOS, so these tests need a host-side bundle.
+  gtermSSHTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Tests/HerdrAutoAttachTests.swift
+      - path: Sources/Model/HerdrSupport.swift
+      - path: Sources/Model/ConnectionStore.swift
+      - path: Sources/Model/Keychain.swift
+      - path: Sources/SSH/PTYChannelHandler.swift
+      - path: Sources/SSH/ChannelCloseOnce.swift
+    dependencies:
+      - package: SwiftNIOSSH
+        product: NIOSSH
+      - package: SwiftNIO
+        product: NIOEmbedded
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gtermSSHTests
+        GENERATE_INFOPLIST_FILE: YES

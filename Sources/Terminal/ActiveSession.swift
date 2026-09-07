@@ -22,6 +22,7 @@ final class ActiveSession: ObservableObject, Identifiable {
         self.id = connection.savedID ?? connection.id
         self.connection = connection
         let surface = TerminalSurfaceView(ghostty: ghostty)
+        surface.attachHerdr = connection.attachHerdr
         self.surface = surface
         let session = SSHSession(
             connection: connection,

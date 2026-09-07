@@ -74,6 +74,12 @@ struct AddConnectionView: View {
                     Toggle("Save password", isOn: $connection.savePassword)
                 }
 
+                Section {
+                    Toggle("Attach with Herdr", isOn: $connection.attachHerdr)
+                } footer: {
+                    Text("Runs herdr using your remote login shell's environment (starts or attaches to the default session). Taps are sent as mouse clicks so Herdr's tabs, panes, and menus work. Herdr must be installed on the remote host.")
+                }
+
                 Section("Port Forwards") {
                     ForEach(forwardStore.forwards(for: connection.id)) { f in
                         Button {

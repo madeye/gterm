@@ -17,6 +17,8 @@ struct SSHConnection: Identifiable {
     /// saved host. Not persisted; rides along so the UI can resolve persisted
     /// port forwards for this connection.
     var savedID: UUID? = nil
+    /// When true, the PTY execs `herdr` instead of requesting a login shell.
+    var attachHerdr: Bool = false
 }
 
 /// Drives an interactive SSH shell over a PTY using swift-nio-ssh and feeds it
@@ -162,6 +164,7 @@ final class SSHSession: TerminalSession {
                         term: self.connection.term,
                         cols: cols,
                         rows: rows,
+                        start: HerdrSupport.ptyStart(attachHerdr: self.connection.attachHerdr),
                         onOutput: { [weak self] buf in
                             self?.deliverOutput(buf)
                         },
@@ -247,6 +250,18 @@ final class SSHSession: TerminalSession {
         guard let childChannel, let ptyHandler else { return }
         childChannel.eventLoop.execute {
             ptyHandler.sendWindowChange(cols: cols, rows: rows)
+        }
+    }
+
+    func terminalSurfaceDidResume(_ view: TerminalSurfaceView, cols: Int, rows: Int) {
+        guard let childChannel, let ptyHandler else { return }
+        let sizes = HerdrSupport.windowChangesForForeground(
+            attachHerdr: connection.attachHerdr, cols: cols, rows: rows
+        )
+        childChannel.eventLoop.execute {
+            for size in sizes {
+                ptyHandler.sendWindowChange(cols: size.cols, rows: size.rows)
+            }
         }
     }
 

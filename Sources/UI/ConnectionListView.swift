@@ -97,7 +97,8 @@ struct ConnectionListView: View {
     private func makeConnection(_ conn: SavedConnection, password: String) -> SSHConnection {
         SSHConnection(
             host: conn.host, port: conn.port, username: conn.username,
-            password: password, privateKeys: keyTexts(for: conn), savedID: conn.id)
+            password: password, privateKeys: keyTexts(for: conn),
+            savedID: conn.id, attachHerdr: conn.attachHerdr)
     }
 
     private func connect(_ conn: SavedConnection) {

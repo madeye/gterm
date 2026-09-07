@@ -65,6 +65,24 @@ brew install xcodegen
 `gterm.xcodeproj`, `Info.plist`, and `GhosttyKit.xcframework` are generated and
 git-ignored.
 
+## Testing SSH startup
+
+Run the Herdr auto-attach regressions on macOS (no SSH credentials or running
+Herdr server required):
+
+```sh
+xcodegen generate
+xcodebuild -project gterm.xcodeproj -scheme gtermSSHTests \
+  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
+```
+
+These tests exercise the PTY handler's request/reply flow and execute its
+startup command with isolated shell profiles and a fixture `herdr` executable.
+They cover PATH initialization, request failures, nonzero exit status, clean
+detach, and terminal input/output. Channel tests also run in the iOS
+`gtermTests` scheme; testing attachment to a real remote Herdr session still
+requires a simulator or device smoke test.
+
 ## Releasing for AltStore
 
 `scripts/build-altstore-ipa.sh` produces an **unsigned** `.ipa` suitable for
@@ -95,5 +113,4 @@ Bundled / dependency components keep their own licenses: the
 [ghostty](https://github.com/madeye/ghostty) engine is MIT; swift-nio-ssh,
 swift-crypto, and swift-nio are Apache-2.0; the OpenAI and SwiftAnthropic SDKs
 are MIT.
-
 

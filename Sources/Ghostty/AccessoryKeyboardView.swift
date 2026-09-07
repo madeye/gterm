@@ -7,6 +7,10 @@ import UIKit
 ///
 /// When the user is typing a command, a history-based autocomplete row appears
 /// above the key bar; tapping a suggestion sends its remaining characters.
+///
+/// When the connection attaches with Herdr, a shortcut row is inserted above
+/// the key bar. Each button sends the prefix (`ctrl+b`) then the action key
+/// so prefix chords do not have to be tapped out on glass.
 final class AccessoryKeyboardView: UIInputView {
     private weak var target: TerminalSurfaceView?
     private var ctrlButton: UIButton?
@@ -18,6 +22,9 @@ final class AccessoryKeyboardView: UIInputView {
     private var suggestionScroll: UIScrollView?
     private var suggestionStack: UIStackView?
     private var suggestionsVisible = false
+
+    private var herdrScroll: UIScrollView?
+    private var herdrVisible = false
 
     /// History-based suggestions (instant) and the AI suggestion (async). The AI
     /// chip is rendered first, distinctly; both insert a full command line.
@@ -38,12 +45,15 @@ final class AccessoryKeyboardView: UIInputView {
         allowsSelfSizing = true
         translatesAutoresizingMaskIntoConstraints = false
         build()
+        setHerdrEnabled(target.attachHerdr)
     }
 
     required init?(coder: NSCoder) { fatalError("not supported") }
 
     override var intrinsicContentSize: CGSize {
-        let height = Self.keysHeight + (suggestionsVisible ? Self.suggestionHeight : 0)
+        var height = Self.keysHeight
+        if suggestionsVisible { height += Self.suggestionHeight }
+        if herdrVisible { height += Self.keysHeight }
         return CGSize(width: UIView.noIntrinsicMetric, height: height)
     }
 
@@ -60,7 +70,68 @@ final class AccessoryKeyboardView: UIInputView {
             root.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         root.addArrangedSubview(buildSuggestionRow())
+        root.addArrangedSubview(buildHerdrRow())
         root.addArrangedSubview(buildKeysRow())
+    }
+
+    // MARK: Herdr shortcut row
+
+    /// Show or hide the one-tap Herdr prefix-chord row. Driven by the
+    /// connection's `attachHerdr` flag via `HerdrSupport.keyboardShortcuts`.
+    func setHerdrEnabled(_ enabled: Bool) {
+        let show = !HerdrSupport.keyboardShortcuts(attachHerdr: enabled).isEmpty
+        guard show != herdrVisible else { return }
+        herdrVisible = show
+        herdrScroll?.isHidden = !show
+        invalidateIntrinsicContentSize()
+    }
+
+    private func buildHerdrRow() -> UIView {
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.alwaysBounceHorizontal = true
+        scroll.keyboardDismissMode = .none
+
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 6
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            scroll.heightAnchor.constraint(equalToConstant: Self.keysHeight),
+            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -8),
+            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 6),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -6),
+            stack.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor, constant: -12),
+        ])
+
+        for shortcut in HerdrSupport.keyboardShortcuts(attachHerdr: true) {
+            stack.addArrangedSubview(herdrButton(shortcut))
+        }
+
+        scroll.isHidden = true
+        herdrScroll = scroll
+        return scroll
+    }
+
+    private func herdrButton(_ shortcut: HerdrSupport.Shortcut) -> UIButton {
+        let button = UIButton(type: .system)
+        var config = UIButton.Configuration.tinted()
+        config.title = shortcut.title
+        config.baseForegroundColor = .label
+        config.cornerStyle = .medium
+        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10)
+        button.configuration = config
+        button.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+        button.accessibilityLabel = shortcut.accessibilityLabel
+        button.addAction(UIAction { [weak self] _ in
+            self?.target?.sendHerdrShortcut(shortcut)
+        }, for: .touchUpInside)
+        return button
     }
 
     // MARK: Suggestion row

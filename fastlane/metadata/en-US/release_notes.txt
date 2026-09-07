@@ -1,4 +1,5 @@
-Bug-fix release.
-
-- Fix a terminal engine overflow when resizing the terminal
-- Fix the on-screen keyboard not reappearing when you tap the terminal after dismissing it
+- New "Attach with Herdr" option per connection: launches or attaches to a Herdr session on the remote host, with taps delivered as mouse clicks and pinch-to-zoom for panes
+- SSH sessions stay alive when you return to the connection list
+- The terminal closes automatically when the remote session ends
+- Collapse and expand the on-screen keyboard
+- Fixes for SSH, AI completion, and saved-connection persistence

@@ -14,6 +14,11 @@
 #     Install with: brew install zig@0.15
 #   * The harness HTTP proxy ($HTTPS_PROXY) breaks zig's HTTP client, so we
 #     unset all proxy vars before invoking zig.
+#   * Xcode 27's macOS 27 SDK math.h asks the compiler's float.h for
+#     INFINITY/NAN via the `__need_infinity_nan` protocol (LLVM 22 / Apple
+#     clang 21). Zig 0.15 bundles LLVM 20 headers, so its libc++ build fails
+#     with "undeclared identifier 'INFINITY'". patch_zig_float_h below adds
+#     the protocol to zig's float.h (idempotent; a no-op on older SDKs).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -84,6 +89,34 @@ patch_libxev() {
 }
 echo "==> Patching libxev for iOS (mach-port Async)"
 patch_libxev
+
+# See the header comment: implement clang's `__need_infinity_nan` float.h
+# protocol (LLVM PR #164348) in zig's bundled float.h so <cmath> compiles
+# against the macOS 27 SDK. Wraps the whole existing header in the #else arm.
+patch_zig_float_h() {
+  local zig_lib float_h
+  zig_lib="$("${NOPROXY[@]}" "$ZIG" env | sed -n 's/.*lib_dir"\{0,1\} *[=:] *"\([^"]*\)".*/\1/p')"
+  float_h="$zig_lib/include/float.h"
+  if [[ ! -f "$float_h" ]]; then
+    echo "warning: zig float.h not found at $float_h; skipping __need_infinity_nan patch" >&2
+    return 0
+  fi
+  if grep -q '__need_infinity_nan' "$float_h"; then
+    echo "    zig float.h already handles __need_infinity_nan"
+    return 0
+  fi
+  if ! grep -q '^#ifndef __CLANG_FLOAT_H' "$float_h"; then
+    echo "warning: zig float.h not in expected form; skipping __need_infinity_nan patch" >&2
+    return 0
+  fi
+  chmod u+w "$float_h"
+  cp -p "$float_h" "$float_h.orig"
+  perl -0pi -e 's|^#ifndef __CLANG_FLOAT_H\n#define __CLANG_FLOAT_H\n|/* Local patch (gterm build-ghostty-xcframework.sh): honor the macOS 27 SDK\n * __need_infinity_nan protocol (LLVM PR #164348). */\n#if defined(__need_infinity_nan)\n#  undef INFINITY\n#  undef NAN\n#  define INFINITY (__builtin_inff())\n#  define NAN (__builtin_nanf(""))\n#  undef __need_infinity_nan\n#else\n\n#ifndef __CLANG_FLOAT_H\n#define __CLANG_FLOAT_H\n|m' "$float_h"
+  printf '#endif /* __need_infinity_nan */\n' >> "$float_h"
+  echo "    patched zig float.h for the macOS 27 SDK: $float_h (backup: $float_h.orig)"
+}
+echo "==> Patching zig float.h for the macOS 27 SDK (__need_infinity_nan)"
+patch_zig_float_h
 
 echo "==> Compiling"
 "${NOPROXY[@]}" "$ZIG" build -Demit-macos-app=false "$@"

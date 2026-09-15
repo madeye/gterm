@@ -22,7 +22,7 @@ git submodule update --init ghostty   # if not already checked out
 ./scripts/build-ghostty-xcframework.sh
 ```
 
-Produces `GhosttyKit.xcframework` (macOS + iOS device + iOS simulator slices). Requires the patched `/opt/homebrew/opt/zig@0.15/bin/zig`; proxy env vars must be unset (the script handles this). Override with `ZIG=...` or `GHOSTTY_DIR=...`.
+Produces `GhosttyKit.xcframework` (macOS + iOS device + iOS simulator slices). Requires the patched `/opt/homebrew/opt/zig@0.15/bin/zig`; proxy env vars must be unset (the script handles this). Override with `ZIG=...` or `GHOSTTY_DIR=...`. Under Xcode 27 the script also patches zig's bundled `float.h` (backup kept as `float.h.orig`) because the macOS 27 SDK's math.h needs clang's `__need_infinity_nan` protocol, which zig 0.15's LLVM 20 headers lack; without it the libc++ build fails with `undeclared identifier 'INFINITY'`.
 
 ### Generate Xcode project and build
 

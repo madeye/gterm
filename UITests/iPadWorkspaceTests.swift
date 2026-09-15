@@ -92,12 +92,12 @@ final class iPadWorkspaceTests: XCTestCase {
         app.launch()
         maximizeWindow(app)
         XCTAssertTrue(app.buttons["Add host"].waitForExistence(timeout: 10))
-        let originalFrame = app.windows.firstMatch.frame
-        let corner = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.995, dy: 0.99))
-        let target = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+        let originalFrame = mainWindow(app).frame
+        let corner = mainWindow(app).coordinate(withNormalizedOffset: CGVector(dx: 0.995, dy: 0.99))
+        let target = mainWindow(app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
         corner.click(forDuration: 0.2, thenDragTo: target)
         capture("iPad narrow window")
-        XCTAssertLessThan(app.windows.firstMatch.frame.width, originalFrame.width * 0.8)
+        XCTAssertLessThan(mainWindow(app).frame.width, originalFrame.width * 0.8)
         XCTAssertTrue(app.buttons["Add host"].exists)
         connectTestHost(app, username: "test")
         XCTAssertTrue(app.buttons["Toggle keyboard"].waitForExistence(timeout: 5))
@@ -106,16 +106,43 @@ final class iPadWorkspaceTests: XCTestCase {
         app.typeKey("w", modifierFlags: .command)
         XCTAssertTrue(app.buttons["Add host"].waitForExistence(timeout: 5))
         maximizeWindow(app)
-        XCTAssertGreaterThan(app.windows.firstMatch.frame.width, originalFrame.width * 0.8)
+        capture("iPad restored window")
+        XCTAssertTrue(waitForWindowWidth(app, atLeast: originalFrame.width * 0.8),
+                      "window width \(mainWindow(app).frame.width) after restoring from \(originalFrame.width)")
+    }
+
+    /// The app owns several windows (keyboard, text effects) whose frames can
+    /// be reported in a different orientation. Target the one hosting Hosts.
+    private func mainWindow(_ app: XCUIApplication) -> XCUIElement {
+        app.windows.containing(.button, identifier: "Add host").firstMatch
     }
 
     private func maximizeWindow(_ app: XCUIApplication) {
-        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
-        if app.windows.firstMatch.frame.width < UIScreen.main.bounds.width * 0.9 {
+        XCTAssertTrue(app.buttons["Add host"].waitForExistence(timeout: 10))
+        let wide = UIScreen.main.bounds.width * 0.9
+        if mainWindow(app).frame.width < wide {
             // iPadOS 26 retains window sizes across app launches. Double-tap
             // the window's top edge to restore full size before wide tests.
-            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.005)).doubleTap()
+            mainWindow(app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.005)).doubleTap()
+            waitForWindowWidth(app, atLeast: wide)
         }
+    }
+
+    /// The zoom animates, so require two consecutive wide reads.
+    @discardableResult
+    private func waitForWindowWidth(_ app: XCUIApplication, atLeast minWidth: CGFloat, timeout: TimeInterval = 5) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        var wideReads = 0
+        while Date() < deadline {
+            if mainWindow(app).frame.width >= minWidth {
+                wideReads += 1
+                if wideReads >= 2 { return true }
+            } else {
+                wideReads = 0
+            }
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+        return mainWindow(app).frame.width >= minWidth
     }
 
     private func connectTestHost(_ app: XCUIApplication, username: String) {

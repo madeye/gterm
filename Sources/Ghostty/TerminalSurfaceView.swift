@@ -30,6 +30,8 @@ extension TerminalSurfaceViewDelegate {
 /// ghostty key/text C API; received bytes are pushed in via `receive(_:)`.
 final class TerminalSurfaceView: UIView {
     var onKeyboardShortcut: ((String) -> Void)?
+    /// The representable currently hosting this surface; see TerminalView.
+    weak var host: AnyObject?
     private var softwareKeyboardHidden = false
     private lazy var hiddenKeyboardView = UIView(frame: .zero)
     override var inputView: UIView? { softwareKeyboardHidden ? hiddenKeyboardView : nil }
@@ -55,6 +57,12 @@ final class TerminalSurfaceView: UIView {
         backgroundColor = .black
         isOpaque = true
         contentMode = .redraw
+
+        // Moving between displays with different scales (iPhone Duo) must
+        // re-sync the surface's pixel size.
+        registerForTraitChanges([UITraitDisplayScale.self]) { (view: TerminalSurfaceView, _) in
+            view.setNeedsLayout()
+        }
 
         // Pinch: font size normally; Herdr pane zoom when attachHerdr is on.
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
@@ -93,7 +101,7 @@ final class TerminalSurfaceView: UIView {
         cfg.platform_tag = GHOSTTY_PLATFORM_IOS
         cfg.platform = ghostty_platform_u(ios: ghostty_platform_ios_s(uiview: selfPtr))
         cfg.userdata = selfPtr
-        cfg.scale_factor = Double(window?.screen.scale ?? UIScreen.main.scale)
+        cfg.scale_factor = Double(displayScale)
         cfg.font_size = 0
         cfg.io_backend = GHOSTTY_IO_BACKEND_PASSTHRU
         cfg.pty_write_cb = { ud, ptr, len in
@@ -229,9 +237,18 @@ final class TerminalSurfaceView: UIView {
         CATransaction.commit()
     }
 
+    /// Scale of the display currently showing this view. `UIScreen.main` is
+    /// deprecated and wrong on multi-display devices (iPhone Duo inner/outer);
+    /// `displayScale` is 0 when unspecified, hence the fallback.
+    var displayScale: CGFloat {
+        if let scale = window?.windowScene?.screen.scale, scale > 0 { return scale }
+        let trait = traitCollection.displayScale
+        return trait > 0 ? trait : 2
+    }
+
     private func syncSize() {
         guard let surface else { return }
-        let scale = window?.screen.scale ?? UIScreen.main.scale
+        let scale = displayScale
         ghostty_surface_set_content_scale(surface, Double(scale), Double(scale))
         let size = bounds.size
         ghostty_surface_set_size(

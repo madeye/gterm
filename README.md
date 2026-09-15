@@ -22,11 +22,17 @@ connection via a custom **passthru IO backend** added to libghostty. See
   Keychain, device-only); each host can select one or more keys to try
 - ⏳ Encrypted (passphrase) keys, RSA, richer settings (font/theme)
 
-## iPad and Magic Keyboard
+## iPad, iPhone Duo, and Magic Keyboard
 
 On iPad, Hosts stays in a collapsible sidebar beside the terminal. Use the
 Sessions menu to switch connections without disconnecting them. Keys, AI,
 and Settings open in sheets; narrow windows collapse to one column.
+
+iPhone Duo gets the same sidebar workspace on its inner display, where the
+window is regular in both size classes. The outer display and Split View use
+the iPhone tab layout. Sessions stay connected across folding; the terminal
+surface simply moves between the two layouts. Full edge-to-edge use of the
+inner display requires a build against the iOS 27.1 SDK.
 
 Magic Keyboard supports two-finger scrollback, pointer drag selection, and
 Command-click to open terminal links. The keyboard button hides the software
@@ -56,6 +62,10 @@ starts the loopback SSH fixture, and runs all UI tests. It removes its device
 and stops its fixture on completion or interruption. Existing simulators are
 left alone. Logs and the `.xcresult` bundle (including screenshots) remain in
 the printed temporary directory. Use `--derived-data PATH` to reuse a build cache.
+`--device-type NAME` picks another simulator: `"iPhone 17 Pro Max"` runs the
+phone layout tests (the iPad window test skips itself), and the iPhone Duo
+simulator can be targeted the same way once Xcode 27.1 is installed.
+`--only-testing gtermUITests/PhoneLayoutTests` narrows the run.
 
 Port 62222 must be free for the fixture. The keyboard test exercises an SSH
 connection, keyboard dispatch with the software keyboard hidden, session

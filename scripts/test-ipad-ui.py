@@ -24,6 +24,11 @@ def interrupted(signum, frame):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--derived-data", default=str(ROOT / "build/ui-tests"))
+    parser.add_argument("--device-type", default="iPad Pro 11-inch (M5)",
+                        help="simctl device type name, e.g. 'iPhone 17 Pro Max' or the "
+                             "iPhone Duo simulator once Xcode 27.1 ships")
+    parser.add_argument("--only-testing", action="append", default=[],
+                        help="xcodebuild -only-testing identifier (repeatable)")
     args = parser.parse_args()
     # Fail before allocating a device if the fixture dependency is missing.
     run(sys.executable, "-c", "import paramiko")
@@ -34,8 +39,11 @@ def main():
     if not runtimes:
         parser.error("Install an iOS 26 or newer simulator runtime in Xcode.")
     runtime = max(runtimes, key=lambda r: tuple(map(int, r["version"].split("."))))
-    device_type = next(d["identifier"] for d in runtime["supportedDeviceTypes"]
-                       if d["name"] == "iPad Pro 11-inch (M5)")
+    device_types = {d["name"]: d["identifier"] for d in runtime["supportedDeviceTypes"]}
+    device_type = device_types.get(args.device_type)
+    if device_type is None:
+        parser.error(f"No device type {args.device_type!r} in {runtime['name']}. Available:\n  "
+                     + "\n  ".join(sorted(device_types)))
     artifacts = Path(tempfile.mkdtemp(prefix="gterm-ui-tests-"))
     print(f"Test logs and screenshots: {artifacts}", flush=True)
     device = None
@@ -55,19 +63,20 @@ def main():
                 raise RuntimeError("SSH fixture did not become ready within 10 seconds")
             device = run("xcrun", "simctl", "create", artifacts.name, device_type,
                          runtime["identifier"], capture_output=True, text=True).stdout.strip()
-            print(f"Offscreen iPad: {device} ({runtime['name']})", flush=True)
+            print(f"Offscreen {args.device_type}: {device} ({runtime['name']})", flush=True)
             # simctl boots the device services without launching the Simulator UI.
             run("xcrun", "simctl", "boot", device)
             run("xcrun", "simctl", "bootstatus", device, "-b")
             run("xcodegen", "generate")
             with (artifacts / "xcodebuild.log").open("w") as build_log:
+                only = [arg for test in args.only_testing for arg in ("-only-testing", test)]
                 run("xcodebuild", "-project", "gterm.xcodeproj", "-scheme", "gtermUITests",
                     "-destination", f"platform=iOS Simulator,id={device}",
                     "-parallel-testing-enabled", "NO", "-derivedDataPath", args.derived_data,
-                    "-resultBundlePath", str(artifacts / "Tests.xcresult"),
+                    "-resultBundlePath", str(artifacts / "Tests.xcresult"), *only,
                     "CODE_SIGNING_ALLOWED=NO", "test",
                     stdout=build_log, stderr=subprocess.STDOUT)
-            print("iPad UI tests passed.", flush=True)
+            print("UI tests passed.", flush=True)
     finally:
         if fixture is not None and fixture.poll() is None:
             fixture.terminate()

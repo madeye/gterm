@@ -6,6 +6,8 @@ struct RootView: View {
     @StateObject private var keys = KeyStore()
     @StateObject private var forwards = PortForwardStore()
     @StateObject private var sessions = SessionManager()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var activeSession: ActiveSession?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var preferredColumn: NavigationSplitViewColumn = .sidebar
@@ -21,15 +23,37 @@ struct RootView: View {
     @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
     @State private var showWelcome = false
 
+    /// Wide layouts use the split-view workspace: iPad (any window width; the
+    /// split view collapses itself when narrow) and phones whose window is
+    /// regular in both axes, i.e. the iPhone Duo's inner display. Deliberately
+    /// not `horizontalSizeClass == .regular` alone: Max-class iPhones are
+    /// regular-width in landscape and must keep the tab layout. Read here at
+    /// the window root; NavigationSplitView overrides size classes per column.
+    private var usesWorkspace: Bool {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "gtermForceWorkspaceLayout") { return true }
+        #endif
+        return UIDevice.current.userInterfaceIdiom == .pad
+            || (horizontalSizeClass == .regular && verticalSizeClass == .regular)
+    }
+
     var body: some View {
         Group {
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                iPadWorkspace
+            if usesWorkspace {
+                workspace
             } else {
                 phoneTabs
                     .fullScreenCover(item: $activeSession) { session in
                         terminal(session)
                     }
+            }
+        }
+        .onChange(of: usesWorkspace) { _, wide in
+            // Folding an iPhone Duo tears the workspace's utility sheet down
+            // without onDismiss; clear it so unfolding doesn't re-present it.
+            if !wide {
+                utility = nil
+                welcomeAfterUtility = false
             }
         }
         .fullScreenCover(isPresented: $showWelcome) {
@@ -46,7 +70,7 @@ struct RootView: View {
     private var hosts: some View {
         ConnectionListView(
             store: connections, keyStore: keys, forwardStore: forwards, sessions: sessions,
-            usesNavigationStack: UIDevice.current.userInterfaceIdiom != .pad,
+            usesNavigationStack: !usesWorkspace,
             selectedSessionID: activeSession?.id
         ) { connection in
             let connectionForwards = connection.savedID.map { forwards.forwards(for: $0) } ?? []
@@ -67,7 +91,7 @@ struct RootView: View {
         }
     }
 
-    private var iPadWorkspace: some View {
+    private var workspace: some View {
         NavigationSplitView(columnVisibility: $columnVisibility, preferredCompactColumn: $preferredColumn) {
             hosts
                 .safeAreaInset(edge: .bottom) {

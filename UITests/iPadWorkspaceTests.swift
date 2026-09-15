@@ -6,9 +6,7 @@ final class iPadWorkspaceTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasSeenWelcome", "YES"]
         XCUIDevice.shared.orientation = .landscapeLeft
-        app.launch()
-        maximizeWindow(app)
-        XCTAssertTrue(app.buttons["Add host"].waitForExistence(timeout: 10))
+        try launchWorkspace(app)
         XCTAssertTrue(app.staticTexts["Select a Host"].exists)
         capture("iPad landscape workspace")
 
@@ -37,9 +35,7 @@ final class iPadWorkspaceTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasSeenWelcome", "YES"]
         XCUIDevice.shared.orientation = .landscapeLeft
-        app.launch()
-        maximizeWindow(app)
-        XCTAssertTrue(app.buttons["Add host"].waitForExistence(timeout: 10))
+        try launchWorkspace(app)
         connectTestHost(app, username: "test")
         XCTAssertTrue(app.buttons["Toggle keyboard"].waitForExistence(timeout: 5))
         app.buttons["Toggle keyboard"].tap()
@@ -56,13 +52,16 @@ final class iPadWorkspaceTests: XCTestCase {
         app.typeKey("0", modifierFlags: .command)
         let terminal = app.descendants(matching: .any)["terminalSurface"]
         XCTAssertTrue(terminal.waitForExistence(timeout: 5))
-        terminal.hover()
-        terminal.scroll(byDeltaX: 0, deltaY: -300)
-        capture("Magic Keyboard scrolled history")
-        let selectionStart = terminal.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.3))
-        let selectionEnd = terminal.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.3))
-        selectionStart.click(forDuration: 0.1, thenDragTo: selectionEnd)
-        capture("Magic Keyboard pointer selection")
+        // XCUITest synthesizes pointer events only on iPad.
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            terminal.hover()
+            terminal.scroll(byDeltaX: 0, deltaY: -300)
+            capture("Magic Keyboard scrolled history")
+            let selectionStart = terminal.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.3))
+            let selectionEnd = terminal.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.3))
+            selectionStart.click(forDuration: 0.1, thenDragTo: selectionEnd)
+            capture("Magic Keyboard pointer selection")
+        }
         app.typeKey("c", modifierFlags: .command)
         app.typeKey("v", modifierFlags: .command)
         app.typeKey("a", modifierFlags: .command)
@@ -86,12 +85,12 @@ final class iPadWorkspaceTests: XCTestCase {
     }
 
     func testWindowResizingKeepsHostsReachable() throws {
+        // Window corner drags and the title-edge double-tap are iPadOS-only.
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad)
         let app = XCUIApplication()
         app.launchArguments = ["-hasSeenWelcome", "YES"]
         XCUIDevice.shared.orientation = .landscapeLeft
-        app.launch()
-        maximizeWindow(app)
-        XCTAssertTrue(app.buttons["Add host"].waitForExistence(timeout: 10))
+        try launchWorkspace(app)
         let originalFrame = mainWindow(app).frame
         let corner = mainWindow(app).coordinate(withNormalizedOffset: CGVector(dx: 0.995, dy: 0.99))
         let target = mainWindow(app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
@@ -109,6 +108,16 @@ final class iPadWorkspaceTests: XCTestCase {
         capture("iPad restored window")
         XCTAssertTrue(waitForWindowWidth(app, atLeast: originalFrame.width * 0.8),
                       "window width \(mainWindow(app).frame.width) after restoring from \(originalFrame.width)")
+    }
+
+    /// Launches into the sidebar workspace, or skips on devices that show the
+    /// tab layout (every shipping iPhone). The iPhone Duo's inner display is
+    /// regular in both axes and runs these tests like an iPad.
+    private func launchWorkspace(_ app: XCUIApplication) throws {
+        app.launch()
+        XCTAssertTrue(app.buttons["Add host"].waitForExistence(timeout: 10))
+        try XCTSkipIf(app.tabBars.buttons["Hosts"].exists, "tab layout: workspace tests need a regular-by-regular window")
+        maximizeWindow(app)
     }
 
     /// The app owns several windows (keyboard, text effects) whose frames can
@@ -143,48 +152,5 @@ final class iPadWorkspaceTests: XCTestCase {
             Thread.sleep(forTimeInterval: 0.25)
         }
         return mainWindow(app).frame.width >= minWidth
-    }
-
-    private func connectTestHost(_ app: XCUIApplication, username: String) {
-        app.buttons["Add host"].tap()
-        let name = "Keyboard test \(UUID().uuidString.prefix(6))"
-        for (field, value) in [("name (optional)", name), ("host", "127.0.0.1"), ("username", username)] {
-            app.textFields[field].tap()
-            app.textFields[field].typeText(value)
-        }
-        app.textFields["port"].tap()
-        app.textFields["port"].typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2) + "62222")
-        // Dismiss iPadOS's floating number-pad popover before tapping Save.
-        app.textFields["name (optional)"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertTrue(app.buttons["Save"].isEnabled)
-        app.buttons["Save"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        let host = app.staticTexts[name]
-        for _ in 0..<12 {
-            if host.isHittable && host.frame.maxY < app.buttons["Keys"].frame.minY - 12 { break }
-            app.collectionViews.firstMatch.swipeUp()
-        }
-        XCTAssertTrue(host.waitForExistence(timeout: 5))
-        host.tap()
-        XCTAssertTrue(app.alerts["Password"].waitForExistence(timeout: 5))
-        app.alerts.secureTextFields.firstMatch.typeText("test")
-        app.alerts.buttons["Connect"].tap()
-        if app.alerts["Unknown Host"].waitForExistence(timeout: 3) {
-            app.alerts.buttons["Trust"].tap()
-        } else if app.alerts["Host Key Changed"].exists {
-            // The loopback fixture generates an ephemeral key on every run.
-            app.alerts.buttons["Accept New Key"].tap()
-        }
-        // A fresh simulator may still be opening the terminal after the host
-        // header appears. Wait for SSH readiness before synthesizing keys.
-        let status = app.descendants(matching: .any)["connectionStatus"]
-        let connected = expectation(for: NSPredicate(format: "value == 'Connected'"), evaluatedWith: status)
-        wait(for: [connected], timeout: 10)
-    }
-
-    private func capture(_ name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 }

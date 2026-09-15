@@ -35,7 +35,7 @@ extension TerminalSurfaceView {
             // Convert points to surface pixels and feed as a precision scroll so
             // the content follows the finger. Positive y scrolls toward older
             // lines, which is what dragging the content downward should do.
-            let scale = window?.screen.scale ?? UIScreen.main.scale
+            let scale = displayScale
             let yOffset = Double(delta * scale)
             ghostty_surface_mouse_scroll(surface, 0, yOffset, Self.precisionScrollMods)
         default:

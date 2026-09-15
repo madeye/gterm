@@ -99,6 +99,15 @@ Terminal resize → passthru resize callback → SSHSession → WindowChangeRequ
 
 Passthru callbacks fire on ghostty's IO thread — always hop to the NIO event loop (SSH) or main thread (UI) and never block.
 
+### Layout selection (iPad vs iPhone vs iPhone Duo)
+
+`RootView.usesWorkspace` picks the split-view workspace when the idiom is
+`.pad` or the window is regular in **both** size classes (the iPhone Duo's
+inner display); everything else gets the phone tabs. Do not use
+`horizontalSizeClass == .regular` alone: Max-class iPhones are regular-width
+in landscape and must keep tabs. Never reintroduce `UIScreen.main`; use
+`TerminalSurfaceView.displayScale`, which follows the display the view is on.
+
 ### C interop
 
 GhosttyKit is a static Zig library linked with `-ObjC -lstdc++`. The `Ghostty/` module uses `Unmanaged`, C function-pointer callbacks, and raw struct access against `ghostty.h`. The project uses **Swift 5 language mode** because this low-level interop is substantially simpler than under Swift 6 strict concurrency.
@@ -117,4 +126,5 @@ GhosttyKit is a static Zig library linked with `-ObjC -lstdc++`. The `Ghostty/` 
 - Team: from `DEVELOPMENT_TEAM` in the git-ignored `.env` (see `env.example`); App Store Connect only accepts builds signed by the current team there — the old `SK4GFF6AHN` team is stale
 - Version/build: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`
 - Dependencies: swift-nio-ssh, swift-crypto, OpenAI (MacPaw), SwiftAnthropic
+- iPhone Duo: full edge-to-edge use of the inner display needs a build against the iOS 27.1 SDK (Xcode 27.1+); the deployment target stays 17.0
 - CI: `.github/workflows/build.yml` — builds the engine on macOS-15, caches `~/.cache/zig`

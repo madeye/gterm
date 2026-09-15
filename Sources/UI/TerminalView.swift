@@ -14,6 +14,10 @@ struct TerminalView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> TerminalSurfaceView {
+        // The session-owned surface is reparented when the layout swaps (iPad
+        // session switch, iPhone Duo fold). Only its newest host may rebind
+        // handlers, whatever order the old and new representables update in.
+        surface.host = context.coordinator
         updateHandlers(context.coordinator)
         return surface
     }
@@ -23,6 +27,7 @@ struct TerminalView: UIViewRepresentable {
     }
 
     private func updateHandlers(_ coordinator: Coordinator) {
+        guard surface.host === coordinator else { return }
         coordinator.onOpenURL = onOpenURL
         coordinator.onKeyboardShortcut = onKeyboardShortcut
         // SwiftUI can call onDisappear during split-view navigation while the

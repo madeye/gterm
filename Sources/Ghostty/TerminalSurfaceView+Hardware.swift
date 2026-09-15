@@ -10,6 +10,38 @@ import GhosttyKit
 /// (mode-aware), while plain printable input is left to `UIKeyInput.insertText`
 /// so the layout-correct character is produced and we never double-send.
 extension TerminalSurfaceView {
+    override var keyCommands: [UIKeyCommand]? {
+        let definitions: [(String, UIKeyModifierFlags, String)] = [
+            ("c", .command, "Copy"), ("v", .command, "Paste"),
+            ("a", .command, "Select All"),
+            ("=", .command, "Increase Font Size"),
+            ("-", .command, "Decrease Font Size"),
+            ("0", .command, "Reset Font Size"),
+            ("w", .command, "Back to Hosts"),
+            ("]", [.command, .shift], "Next Session"),
+            ("[", [.command, .shift], "Previous Session")
+        ]
+        return definitions.map { input, modifiers, title in
+            let command = UIKeyCommand(input: input, modifierFlags: modifiers, action: #selector(handleAppCommand(_:)))
+            command.discoverabilityTitle = title
+            command.wantsPriorityOverSystemBehavior = true
+            return command
+        }
+    }
+
+    @objc private func handleAppCommand(_ command: UIKeyCommand) {
+        switch command.input {
+        case "c": _ = performBindingAction("copy_to_clipboard")
+        case "v": _ = performBindingAction("paste_from_clipboard")
+        case "a": _ = performBindingAction("select_all")
+        case "=": _ = performBindingAction("increase_font_size:1")
+        case "-": _ = performBindingAction("decrease_font_size:1")
+        case "0": _ = performBindingAction("reset_font_size")
+        case let input?: onKeyboardShortcut?(input)
+        default: break
+        }
+    }
+
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         let unhandled = presses.filter { !handleHardwarePress($0, action: .press) }
         if !unhandled.isEmpty { super.pressesBegan(unhandled, with: event) }
@@ -27,6 +59,25 @@ extension TerminalSurfaceView {
     /// let UIKit's text path handle it.
     private func handleHardwarePress(_ press: UIPress, action: Ghostty.KeyAction) -> Bool {
         guard let uiKey = press.key else { return false }
+
+        // UIKit normally dispatches priority key commands before presses.
+        // Handle the fallback here as well, consuming it exactly once rather
+        // than letting Ghostty interpret an app shortcut. Shifted bracket
+        // characters vary by keyboard layout; their physical usages are stable.
+        let commandModifiers = uiKey.modifierFlags.intersection([.command, .control, .alternate, .shift])
+        let commandInput: String
+        switch uiKey.keyCode {
+        case .keyboardOpenBracket: commandInput = "["
+        case .keyboardCloseBracket: commandInput = "]"
+        default: commandInput = uiKey.charactersIgnoringModifiers.lowercased()
+        }
+        if let command = keyCommands?.first(where: {
+            $0.input == commandInput && $0.modifierFlags == commandModifiers
+        }) {
+            handleAppCommand(command)
+            clearStickyMods()
+            return true
+        }
 
         var mods = Ghostty.Mods.fromHardware(uiKey.modifierFlags)
         mods.formUnion(stickyMods)

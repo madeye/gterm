@@ -19,6 +19,7 @@ struct TappedURL: Identifiable {
 struct TerminalScreen: View {
     @ObservedObject var session: ActiveSession
     @ObservedObject var forwardStore: PortForwardStore
+    var onSwitchSession: (Int) -> Void = { _ in }
     let onClose: () -> Void
 
     @State private var showingAICommands = false
@@ -38,10 +39,18 @@ struct TerminalScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             statusBar
-            TerminalView(surface: session.surface)
-        }
-        .onAppear {
-            session.surface.onOpenURL = { url in linkURL = TappedURL(url: url) }
+            TerminalView(
+                surface: session.surface,
+                onOpenURL: { linkURL = TappedURL(url: $0) },
+                onKeyboardShortcut: { input in
+                    switch input {
+                    case "w": onClose()
+                    case "]": onSwitchSession(1)
+                    case "[": onSwitchSession(-1)
+                    default: break
+                    }
+                }
+            )
         }
         .sheet(isPresented: $showingAICommands) {
             AICommandSheet(
@@ -133,7 +142,9 @@ struct TerminalScreen: View {
             Button(action: onClose) {
                 Image(systemName: "chevron.left")
                     .font(.body.weight(.semibold))
+                    .frame(minWidth: 36, minHeight: 36)
             }
+            .accessibilityLabel("Back to hosts")
             Text("\(connection.username)@\(connection.host)")
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)
@@ -152,6 +163,10 @@ struct TerminalScreen: View {
             .accessibilityLabel("Port forwards")
             .disabled(session.state != .connected)
             statusIndicator
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Connection status")
+                .accessibilityValue(statusDescription)
+                .accessibilityIdentifier("connectionStatus")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -175,6 +190,17 @@ struct TerminalScreen: View {
                 .lineLimit(1)
         case .closed:
             Text("disconnected").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var statusDescription: String {
+        switch session.state {
+        case .idle: return "Idle"
+        case .connecting: return "Connecting"
+        case .authenticating: return "Authenticating"
+        case .connected: return "Connected"
+        case .closed: return "Disconnected"
+        case .failed(let message): return "Failed: \(message)"
         }
     }
 

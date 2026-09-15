@@ -167,3 +167,18 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gtermSSHTests
         GENERATE_INFOPLIST_FILE: YES
+
+  gtermUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: UITests
+    dependencies:
+      - target: gterm
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.madeye.gtermUITests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: gterm
+        TARGETED_DEVICE_FAMILY: "1,2"

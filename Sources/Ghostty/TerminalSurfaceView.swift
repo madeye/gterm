@@ -29,6 +29,11 @@ extension TerminalSurfaceViewDelegate {
 /// CAMetalLayer) driven by the passthru IO backend. Input is sent via the
 /// ghostty key/text C API; received bytes are pushed in via `receive(_:)`.
 final class TerminalSurfaceView: UIView {
+    var onKeyboardShortcut: ((String) -> Void)?
+    private var softwareKeyboardHidden = false
+    private lazy var hiddenKeyboardView = UIView(frame: .zero)
+    override var inputView: UIView? { softwareKeyboardHidden ? hiddenKeyboardView : nil }
+
     weak var delegate: TerminalSurfaceViewDelegate?
 
     private weak var ghostty: Ghostty.App?
@@ -43,6 +48,10 @@ final class TerminalSurfaceView: UIView {
         // Non-zero initial frame so the Metal layer has a drawable size.
         super.init(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
 
+        isAccessibilityElement = true
+        accessibilityLabel = "Terminal"
+        accessibilityIdentifier = "terminalSurface"
+        accessibilityTraits = .allowsDirectInteraction
         backgroundColor = .black
         isOpaque = true
         contentMode = .redraw
@@ -104,6 +113,7 @@ final class TerminalSurfaceView: UIView {
         }
         self.surface = surface
         setupSelectionGestures()
+        setupPointerGestures()
         setupScrollGesture()
         setupLinkTapGesture()
     }
@@ -258,6 +268,10 @@ final class TerminalSurfaceView: UIView {
     /// iPadOS keyboard hide key, or the accessory bar's collapse button). The
     /// single-tap gesture calls this so tapping the terminal expands it again.
     func showKeyboardIfNeeded() {
+        if softwareKeyboardHidden {
+            softwareKeyboardHidden = false
+            reloadInputViews()
+        }
         if !isFirstResponder {
             _ = becomeFirstResponder()
         } else if !keyboardVisible {
@@ -272,12 +286,15 @@ final class TerminalSurfaceView: UIView {
     /// the whole screen to the terminal. Tapping the terminal or the status-bar
     /// keyboard button expands it again.
     func collapseKeyboard() {
-        _ = resignFirstResponder()
+        // Keep focus so Magic Keyboard input continues with the software
+        // keyboard hidden. A zero-height input view suppresses only that UI.
+        softwareKeyboardHidden = true
+        reloadInputViews()
     }
 
     /// Toggle the on-screen keyboard: collapse when visible, expand otherwise.
     func toggleKeyboard() {
-        if isFirstResponder && keyboardVisible {
+        if isFirstResponder && keyboardVisible && !softwareKeyboardHidden {
             collapseKeyboard()
         } else {
             showKeyboardIfNeeded()
@@ -288,7 +305,7 @@ final class TerminalSurfaceView: UIView {
 
     /// Perform a libghostty keybind action by name (e.g. "increase_font_size:1").
     @discardableResult
-    private func performBindingAction(_ action: String) -> Bool {
+    func performBindingAction(_ action: String) -> Bool {
         guard let surface else { return false }
         let len = action.utf8.count
         return action.withCString { ghostty_surface_binding_action(surface, $0, UInt(len)) }
@@ -334,7 +351,7 @@ final class TerminalSurfaceView: UIView {
 
     lazy var accessory = AccessoryKeyboardView(target: self)
 
-    override var inputAccessoryView: UIView? { accessory }
+    override var inputAccessoryView: UIView? { softwareKeyboardHidden ? nil : accessory }
 
     /// LLM autocompletion engine (lazy: only built when first needed).
     lazy var completionEngine = CompletionEngine()

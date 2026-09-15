@@ -22,6 +22,48 @@ connection via a custom **passthru IO backend** added to libghostty. See
   Keychain, device-only); each host can select one or more keys to try
 - ⏳ Encrypted (passphrase) keys, RSA, richer settings (font/theme)
 
+## iPad and Magic Keyboard
+
+On iPad, Hosts stays in a collapsible sidebar beside the terminal. Use the
+Sessions menu to switch connections without disconnecting them. Keys, AI,
+and Settings open in sheets; narrow windows collapse to one column.
+
+Magic Keyboard supports two-finger scrollback, pointer drag selection, and
+Command-click to open terminal links. The keyboard button hides the software
+keyboard while keeping physical keyboard input focused on the terminal.
+Hold Command to discover these terminal shortcuts:
+
+| Shortcut | Action |
+| --- | --- |
+| Command-C / V / A | Copy selection / paste / select all |
+| Command-= / - / 0 | Increase / decrease / reset font size |
+| Command-Shift-] / [ | Next / previous session |
+| Command-W | Return to Hosts, keeping the connection alive |
+
+Control and Option combinations continue to go to the remote terminal,
+including Control-C, Control-D, and Option word navigation. Right-click a
+host to connect, edit, disconnect, or delete it.
+
+Run the iPad UI tests offscreen (requires `paramiko` in your Python environment
+and an installed iOS 26+ simulator runtime):
+
+```sh
+python3 scripts/test-ipad-ui.py
+```
+
+The runner creates a disposable iPad, boots it without opening Simulator.app,
+starts the loopback SSH fixture, and runs all UI tests. It removes its device
+and stops its fixture on completion or interruption. Existing simulators are
+left alone. Logs and the `.xcresult` bundle (including screenshots) remain in
+the printed temporary directory. Use `--derived-data PATH` to reuse a build cache.
+
+Port 62222 must be free for the fixture. The keyboard test exercises an SSH
+connection, keyboard dispatch with the software keyboard hidden, session
+switching, and rotation. The fixture reports input as hex: Control-C is `03`,
+Control-D is `04`, and Option-X is `1b78`. Command shortcuts should not appear
+in the SSH input. This is an SSH echo fixture, not a remote shell. Physical
+trackpad feel and Magic Keyboard hardware still require a device smoke test.
+
 ## Building
 
 Requirements: macOS, Xcode 26+, and the patched Homebrew zig:
@@ -113,4 +155,3 @@ Bundled / dependency components keep their own licenses: the
 [ghostty](https://github.com/madeye/ghostty) engine is MIT; swift-nio-ssh,
 swift-crypto, and swift-nio are Apache-2.0; the OpenAI and SwiftAnthropic SDKs
 are MIT.
-

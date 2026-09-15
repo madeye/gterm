@@ -15,6 +15,7 @@ import GhosttyKit
 extension TerminalSurfaceView {
     func setupLinkTapGesture() {
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleLinkTap(_:)))
+        tap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
         tap.numberOfTapsRequired = 1
         tap.numberOfTouchesRequired = 1
         addGestureRecognizer(tap)

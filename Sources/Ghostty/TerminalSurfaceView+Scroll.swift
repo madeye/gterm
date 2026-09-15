@@ -13,7 +13,10 @@ import GhosttyKit
 extension TerminalSurfaceView {
     func setupScrollGesture() {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handleScrollPan(_:)))
+        pan.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
         pan.maximumNumberOfTouches = 1
+        // Magic Keyboard two-finger scrolling and mouse wheels.
+        pan.allowedScrollTypesMask = .all
         addGestureRecognizer(pan)
         scrollPan = pan
     }

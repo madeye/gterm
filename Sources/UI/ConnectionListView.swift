@@ -10,6 +10,8 @@ struct ConnectionListView: View {
     @ObservedObject var keyStore: KeyStore
     @ObservedObject var forwardStore: PortForwardStore
     @ObservedObject var sessions: SessionManager
+    var usesNavigationStack = true
+    var selectedSessionID: UUID? = nil
     let onConnect: (SSHConnection) -> Void
 
     @State private var editing: SavedConnection?
@@ -17,78 +19,104 @@ struct ConnectionListView: View {
     @State private var promptPassword = ""
 
     var body: some View {
-        NavigationStack {
-            List {
-                if store.connections.isEmpty {
-                    ContentUnavailableView(
-                        "No Connections",
-                        systemImage: "terminal",
-                        description: Text("Tap + to add an SSH host.")
-                    )
-                }
-                ForEach(store.connections) { conn in
-                    Button { connect(conn) } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(conn.title).font(.headline)
-                                Text(conn.subtitle).font(.subheadline).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if let session = sessions.session(for: conn.id) {
-                                SessionBadge(session: session)
-                            }
-                        }
-                    }
-                    .swipeActions(edge: .leading) {
-                        if let session = sessions.session(for: conn.id) {
-                            Button { sessions.disconnect(session) } label: {
-                                Label("Disconnect", systemImage: "bolt.slash")
-                            }.tint(.orange)
-                        }
-                    }
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            store.delete(conn)
-                            forwardStore.deleteForwards(for: conn.id)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                        Button { editing = conn } label: {
-                            Label("Edit", systemImage: "pencil")
-                        }.tint(.blue)
-                    }
-                }
-            }
-            .navigationTitle("Hosts")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { editing = SavedConnection() } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(item: $editing) { conn in
-                AddConnectionView(store: store, keyStore: keyStore, forwardStore: forwardStore, connection: conn)
-            }
-            .alert(
-                "Password",
-                isPresented: Binding(
-                    get: { passwordPromptFor != nil },
-                    set: { if !$0 { passwordPromptFor = nil } }
-                ),
-                presenting: passwordPromptFor
-            ) { conn in
-                SecureField("password", text: $promptPassword)
-                Button("Connect") {
-                    onConnect(makeConnection(conn, password: promptPassword))
-                    promptPassword = ""
-                }
-                Button("Cancel", role: .cancel) { promptPassword = "" }
-            } message: { conn in
-                Text("Enter the password for \(conn.username)@\(conn.host).")
+        Group {
+            if usesNavigationStack {
+                NavigationStack { listContent }
+            } else {
+                // NavigationSplitView provides the sidebar's navigation stack.
+                listContent
             }
         }
     }
+
+    private var listContent: some View {
+        List {
+            if store.connections.isEmpty {
+                ContentUnavailableView(
+                    "No Connections",
+                    systemImage: "terminal",
+                    description: Text("Tap + to add an SSH host.")
+                )
+            }
+            ForEach(store.connections) { conn in
+                Button { connect(conn) } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(conn.title).font(.headline)
+                            Text(conn.subtitle).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if let session = sessions.session(for: conn.id) {
+                            SessionBadge(session: session)
+                        }
+                    }
+                }
+                .listRowBackground(selectedSessionID == conn.id ? Color.accentColor.opacity(0.15) : nil)
+                .contextMenu {
+                    Button { connect(conn) } label: { Label("Connect", systemImage: "terminal") }
+                    Button { editing = conn } label: { Label("Edit", systemImage: "pencil") }
+                    if let session = sessions.session(for: conn.id) {
+                        Button { sessions.disconnect(session) } label: {
+                            Label("Disconnect", systemImage: "bolt.slash")
+                        }
+                    }
+                    Button(role: .destructive) {
+                        store.delete(conn)
+                        forwardStore.deleteForwards(for: conn.id)
+                    } label: { Label("Delete", systemImage: "trash") }
+                }
+                .swipeActions(edge: .leading) {
+                    if let session = sessions.session(for: conn.id) {
+                        Button { sessions.disconnect(session) } label: {
+                            Label("Disconnect", systemImage: "bolt.slash")
+                        }.tint(.orange)
+                    }
+                }
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        store.delete(conn)
+                        forwardStore.deleteForwards(for: conn.id)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    Button { editing = conn } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }.tint(.blue)
+                }
+            }
+        }
+        .navigationTitle("Hosts")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { editing = SavedConnection() } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add host")
+                .keyboardShortcut("n", modifiers: .command)
+            }
+        }
+        .sheet(item: $editing) { conn in
+            AddConnectionView(store: store, keyStore: keyStore, forwardStore: forwardStore, connection: conn)
+        }
+        .alert(
+            "Password",
+            isPresented: Binding(
+                get: { passwordPromptFor != nil },
+                set: { if !$0 { passwordPromptFor = nil } }
+            ),
+            presenting: passwordPromptFor
+        ) { conn in
+            SecureField("password", text: $promptPassword)
+            Button("Connect") {
+                onConnect(makeConnection(conn, password: promptPassword))
+                promptPassword = ""
+            }
+            Button("Cancel", role: .cancel) { promptPassword = "" }
+        } message: { conn in
+            Text("Enter the password for \(conn.username)@\(conn.host).")
+        }
+    }
+
 
     private func keyTexts(for conn: SavedConnection) -> [String] {
         conn.keyIDs.compactMap { keyStore.text(for: $0) }

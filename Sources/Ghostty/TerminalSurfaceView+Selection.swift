@@ -20,6 +20,7 @@ extension TerminalSurfaceView {
         let longPress = UILongPressGestureRecognizer(
             target: self, action: #selector(handleSelectionLongPress(_:))
         )
+        longPress.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
         longPress.minimumPressDuration = 0.4
         addGestureRecognizer(longPress)
     }

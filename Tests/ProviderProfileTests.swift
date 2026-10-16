@@ -20,6 +20,12 @@ final class ProviderProfileTests: XCTestCase {
         XCTAssertEqual(ids.count, Set(ids).count)
     }
 
+    func testOpenAIPresetsDefaultToGPT6Luna() {
+        let presets = ProviderProfile.presets()
+        XCTAssertEqual(presets.first { $0.id == "preset.openai" }?.model, "gpt-6-luna")
+        XCTAssertEqual(presets.first { $0.id == "preset.openrouter" }?.model, "openai/gpt-6-luna")
+    }
+
     func testChinaProvidersPresent() {
         let presets = ProviderProfile.presets()
         func preset(_ id: String) -> ProviderProfile? { presets.first { $0.id == id } }

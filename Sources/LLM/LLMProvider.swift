@@ -102,10 +102,14 @@ final class HTTPProviderClient: LLMProviderClient {
               let userMessage = ChatQuery.ChatCompletionMessageParam(role: .user, content: request.userPrompt) else {
             throw LLMProviderError.malformedJSON
         }
+        // Reasoning models (gpt-5+, o-series) 400 on `temperature`; send the
+        // lowest reasoning effort instead so completions stay fast and cheap.
+        let isReasoning = OpenAIModelTraits.isReasoningModel(request.model)
         let query = ChatQuery(
             messages: [systemMessage, userMessage],
             model: request.model,
-            temperature: request.temperature,
+            reasoningEffort: OpenAIModelTraits.reasoningEffort(for: request.model).map { .customValue($0) },
+            temperature: isReasoning ? nil : request.temperature,
             stream: true,
             streamOptions: ChatQuery.StreamOptions(includeUsage: true)
         )
@@ -307,16 +311,73 @@ enum ProviderRequestFactory {
                 "temperature": request.temperature,
             ]
         case .openAICompatible:
-            return [
+            var body: [String: Any] = [
                 "model": request.model,
-                "max_tokens": request.maxTokens,
                 "messages": [
                     ["role": "system", "content": request.systemPrompt],
                     ["role": "user", "content": request.userPrompt],
                 ],
-                "temperature": request.temperature,
             ]
+            if OpenAIModelTraits.isReasoningModel(request.model) {
+                body["max_completion_tokens"] = request.maxTokens
+                body["reasoning_effort"] = OpenAIModelTraits.reasoningEffort(for: request.model)
+            } else {
+                body["max_tokens"] = request.maxTokens
+                body["temperature"] = request.temperature
+            }
+            return body
         }
+    }
+}
+
+/// Request-shape differences between OpenAI model families. Reasoning models
+/// (o-series, gpt-5 and later such as gpt-6-luna) reject sampling knobs like
+/// `temperature` with HTTP 400 and take `reasoning_effort` instead. Detected by
+/// model id, so it also covers OpenAI models routed through OpenRouter
+/// ("openai/gpt-6-luna") and leaves other OpenAI-compatible vendors untouched.
+enum OpenAIModelTraits {
+    static func isReasoningModel(_ model: String) -> Bool {
+        let id = normalized(model)
+        if isOSeries(id) { return true }
+        guard let version = gptVersion(id), version.major >= 5 else { return false }
+        // "gpt-5-chat-latest" is the non-reasoning chat snapshot.
+        return !id.contains("-chat")
+    }
+
+    /// The lowest-latency effort the model accepts: shell completions want a
+    /// quick answer, not deliberation. `nil` for non-reasoning models.
+    static func reasoningEffort(for model: String) -> String? {
+        guard isReasoningModel(model) else { return nil }
+        let id = normalized(model)
+        if isOSeries(id) { return "low" }
+        guard let version = gptVersion(id) else { return nil }
+        // gpt-5.1 and later accept "none"; the original gpt-5 family bottoms out at "minimal".
+        if version.major == 5 && version.minor == 0 { return "minimal" }
+        return "none"
+    }
+
+    private static func normalized(_ model: String) -> String {
+        let id = model.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return id.split(separator: "/").last.map(String.init) ?? id
+    }
+
+    private static func isOSeries(_ id: String) -> Bool {
+        guard id.hasPrefix("o"), let second = id.dropFirst().first else { return false }
+        return second.isNumber
+    }
+
+    /// Parses "gpt-6-luna" → (6, 0), "gpt-5.1" → (5, 1).
+    private static func gptVersion(_ id: String) -> (major: Int, minor: Int)? {
+        guard id.hasPrefix("gpt-") else { return nil }
+        let rest = id.dropFirst(4)
+        let major = rest.prefix(while: \.isNumber)
+        guard let majorValue = Int(major) else { return nil }
+        var minorValue = 0
+        let afterMajor = rest.dropFirst(major.count)
+        if afterMajor.first == "." {
+            minorValue = Int(afterMajor.dropFirst().prefix(while: \.isNumber)) ?? 0
+        }
+        return (majorValue, minorValue)
     }
 }
 

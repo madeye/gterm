@@ -89,3 +89,47 @@ final class ProviderURLSplitterTests: XCTestCase {
         XCTAssertEqual(ProviderURLSplitter.extraHeaders("not json"), [:])
     }
 }
+
+/// Reasoning models (o-series, gpt-5+, e.g. gpt-6-luna) reject `temperature`
+/// with HTTP 400 and take `reasoning_effort` instead.
+final class OpenAIModelTraitsTests: XCTestCase {
+    func testDetectsReasoningModels() {
+        for model in ["gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol", "gpt-5", "gpt-5-mini", "gpt-5.2",
+                      "o1", "o3-mini", "o4-mini", "openai/gpt-6-luna", "GPT-6-Luna"] {
+            XCTAssertTrue(OpenAIModelTraits.isReasoningModel(model), model)
+        }
+        for model in ["gpt-4o-mini", "gpt-4.1", "gpt-5-chat-latest", "deepseek-v4-flash",
+                      "glm-5.1", "kimi-k2.6", "llama-3.1-8b-instant", "openai/gpt-4o-mini", "omni"] {
+            XCTAssertFalse(OpenAIModelTraits.isReasoningModel(model), model)
+        }
+    }
+
+    func testPicksLowestLatencyReasoningEffort() {
+        XCTAssertEqual(OpenAIModelTraits.reasoningEffort(for: "gpt-6-luna"), "none")
+        XCTAssertEqual(OpenAIModelTraits.reasoningEffort(for: "openai/gpt-6-luna"), "none")
+        XCTAssertEqual(OpenAIModelTraits.reasoningEffort(for: "gpt-5.1"), "none")
+        XCTAssertEqual(OpenAIModelTraits.reasoningEffort(for: "gpt-5-mini"), "minimal")
+        XCTAssertEqual(OpenAIModelTraits.reasoningEffort(for: "o4-mini"), "low")
+        XCTAssertNil(OpenAIModelTraits.reasoningEffort(for: "gpt-4o-mini"))
+    }
+
+    func testReasoningModelBodyOmitsTemperature() {
+        let profile = ProviderProfile.openAIPreset()
+        let req = LLMRequest(model: "gpt-6-luna", systemPrompt: "sys", userPrompt: "usr", temperature: 0, maxTokens: 32)
+        let body = ProviderRequestFactory.body(profile: profile, request: req)
+
+        XCTAssertNil(body["temperature"])
+        XCTAssertNil(body["max_tokens"])
+        XCTAssertEqual(body["max_completion_tokens"] as? Int, 32)
+        XCTAssertEqual(body["reasoning_effort"] as? String, "none")
+    }
+
+    func testClassicModelBodyKeepsTemperature() {
+        let profile = ProviderProfile.openAIPreset()
+        let req = LLMRequest(model: "gpt-4o-mini", systemPrompt: "sys", userPrompt: "usr", temperature: 0.1)
+        let body = ProviderRequestFactory.body(profile: profile, request: req)
+
+        XCTAssertEqual(body["temperature"] as? Double, 0.1)
+        XCTAssertNil(body["reasoning_effort"])
+    }
+}

@@ -51,7 +51,7 @@ struct ProviderProfile: Codable, Equatable, Identifiable, Sendable {
     static func openAIPreset() -> ProviderProfile {
         ProviderProfile(id: "preset.openai", name: "OpenAI", kind: .openAICompatible,
                         baseURL: "https://api.openai.com", chatEndpoint: "/v1/chat/completions",
-                        model: "gpt-4o-mini")
+                        model: "gpt-6-luna")
     }
 
     static func anthropicPreset() -> ProviderProfile {
@@ -63,7 +63,7 @@ struct ProviderProfile: Codable, Equatable, Identifiable, Sendable {
     static func openRouterPreset() -> ProviderProfile {
         ProviderProfile(id: "preset.openrouter", name: "OpenRouter", kind: .openAICompatible,
                         baseURL: "https://openrouter.ai/api", chatEndpoint: "/v1/chat/completions",
-                        model: "openai/gpt-4o-mini")
+                        model: "openai/gpt-6-luna")
     }
 
     static func groqPreset() -> ProviderProfile {
